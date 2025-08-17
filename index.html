@@ -15,6 +15,7 @@
   .gem{width:28px;height:28px;border:var(--border);border-radius:8px;background:radial-gradient(circle at 30% 30%,#ffd789,#8a6a18);box-shadow:inset 0 0 12px rgba(255,215,137,.6)}
   h1{font-size:20px;margin:0}
   .toolbar{background:#12151b;border:var(--border);border-radius:var(--radius);padding:10px;box-shadow:var(--shadow)}
+  .tabsRow{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
   .tabs{display:flex;gap:8px;flex-wrap:wrap}
   .tab{padding:10px 14px;border:var(--border);border-radius:10px;background:linear-gradient(180deg,#212632,#1a1f28);cursor:pointer;font-weight:700;color:#f7f8fc}
   .tab[aria-selected="true"]{background:linear-gradient(180deg,#2a313f,#1f2430);box-shadow:inset 0 0 0 2px rgba(227,179,65,.33)}
@@ -53,8 +54,7 @@
   .cols .input{height:44px;width:100%}
   .hint{font-size:12px;color:var(--muted);margin-top:8px}
   .actions{white-space:nowrap}
-  .iconbtn{border:var(--border);background:#0f141b;color:var(--text);border-radius:8px;height:34px;padding:0 10px;cursor:pointer;margin-right:6px}
-  /* Admin login box */
+  .iconbtn{border:var(--border);background:#0f141b;color:#fff;border-radius:8px;height:34px;padding:0 10px;cursor:pointer;margin-right:6px}
   .adminbox{position:fixed;right:16px;bottom:16px;background:#12151b;border:var(--border);border-radius:12px;padding:10px;box-shadow:var(--shadow);min-width:260px}
   .adminbox .row{display:flex;gap:8px;margin-top:8px}
 </style>
@@ -63,19 +63,24 @@
 <div class="wrap">
   <header>
     <span class="gem"></span><h1>Utopia sprzedaje</h1>
-    <div class="right">
-      <button id="settingsBtn" class="btn">Zmień ustawienia</button>
-    </div>
+    <div class="right"><button id="settingsBtn" class="btn">Zmień ustawienia</button></div>
   </header>
 
   <section class="toolbar">
-    <div class="tabs">
-      <button class="tab" data-type="Legendarny" aria-selected="true">Legendarny</button>
-      <button class="tab" data-type="Heroiczny">Heroiczny</button>
-      <button class="tab" data-type="Unikatowy">Unikatowy</button>
-      <button class="tab" data-type="Inny">Inny</button>
-      <button class="tab" data-type="Wszystkie">Wszystkie</button>
+    <div class="tabsRow">
+      <div class="tabs">
+        <button class="tab" data-type="Legendarny" aria-selected="true">Legendarny</button>
+        <button class="tab" data-type="Heroiczny">Heroiczny</button>
+        <button class="tab" data-type="Unikatowy">Unikatowy</button>
+        <button class="tab" data-type="Inny">Inny</button>
+        <button class="tab" data-type="Wszystkie">Wszystkie</button>
+      </div>
+      <div class="tabs" id="viewTabs">
+        <button class="tab" data-view="all"   aria-selected="true">Wszystkie oferty</button>
+        <button class="tab" data-view="mine">Twoje oferty</button>
+      </div>
     </div>
+
     <div class="filters">
       <div><div class="label">min. lvl</div><input id="minLvl" class="input" type="number" placeholder="np. 50"></div>
       <div><div class="label">max. lvl</div><input id="maxLvl" class="input" type="number" placeholder="np. 120"></div>
@@ -135,7 +140,7 @@
       </div>
     </div>
     <footer style="display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;background:#121722;border-top:1px solid rgba(227,179,65,.2)">
-      <button class="btn primary" id="saveBtn">Dodaj</button>
+      <button class="btn primary" id="saveBtn">Zapisz</button>
     </footer>
   </div>
 </div>
@@ -201,7 +206,6 @@
     localStorage.setItem(OWNER_KEY, JSON.stringify(OWNER));
   }
 
-  /* hash do adminToken (SHA-256 → base64) */
   async function sha256b64(str){
     const enc = new TextEncoder();
     const hash = await crypto.subtle.digest('SHA-256', enc.encode(str));
@@ -233,16 +237,28 @@
 
   /* === UI / lista === */
   let REMOTE=[];
-  const tabs=document.querySelectorAll('.tab');
+  const tabs=document.querySelectorAll('.tab[data-type]');
+  const viewTabs=document.querySelectorAll('#viewTabs .tab');
   const minEl=document.getElementById('minLvl'), maxEl=document.getElementById('maxLvl'), tbody=document.getElementById('tbody'), empty=document.getElementById('empty'), previewImg=document.getElementById('pImg');
-  const state={type:'Wszystkie',min:'',max:''};
+  const state={type:'Wszystkie', view:'all', min:'', max:''};
 
   tabs.forEach(b=>b.addEventListener('click',()=>{state.type=b.dataset.type;tabs.forEach(t=>t.setAttribute('aria-selected',String(t===b)));render()}));
+  viewTabs.forEach(b=>b.addEventListener('click',()=>{state.view=b.dataset.view;viewTabs.forEach(t=>t.setAttribute('aria-selected',String(t===b)));render()}));
+
   document.getElementById('searchBtn').addEventListener('click',()=>{state.min=minEl.value?+minEl.value:'';state.max=maxEl.value?+maxEl.value:'';render()});
-  document.getElementById('resetBtn').addEventListener('click',()=>{minEl.value=maxEl.value='';state.min=state.max='';state.type='Wszystkie';tabs.forEach(t=>t.setAttribute('aria-selected',t.dataset.type==='Wszystkie'));render()});
+  document.getElementById('resetBtn').addEventListener('click',()=>{minEl.value=maxEl.value='';state.min=state.max='';state.type='Wszystkie';state.view='all';tabs.forEach(t=>t.setAttribute('aria-selected',t.dataset.type==='Wszystkie'));viewTabs.forEach(t=>t.setAttribute('aria-selected',t.dataset.view==='all'));render()});
 
   function typeMatches(t){ if(state.type==='Wszystkie') return true; if(state.type==='Inny') return t==='Inny'||t==='Inne'; return t===state.type; }
-  function byFilters(x){ if(!typeMatches(x.type)) return false; if(state.min!=='' && x.lvl<state.min) return false; if(state.max!=='' && x.lvl>state.max) return false; return true; }
+  function byFilters(x){
+    if(!typeMatches(x.type)) return false;
+    if(state.min!=='' && x.lvl<state.min) return false;
+    if(state.max!=='' && x.lvl>state.max) return false;
+    if(state.view==='mine'){
+      if(!OWNER || !OWNER.ownerId) return false;
+      return x.ownerId === OWNER.ownerId;
+    }
+    return true;
+  }
   function toThumb(url){ if(!url) return ''; if(url.includes('thumbnail?id=')) return url; const m=url.match(/[?&]id=([^&]+)/); return m?`https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600`:url; }
 
   async function loadAndRender(){ REMOTE = await apiList(); render(); }
@@ -405,7 +421,7 @@
   }
   adminLoginBtn.addEventListener('click', async ()=>{
     const pw=(adminPass.value||'').trim(); if(!pw) return;
-    ADMIN_TOKEN = await sha256b64(pw);  // walidacja i tak będzie po stronie backendu
+    ADMIN_TOKEN = await sha256b64(pw);  // weryfikacja po stronie backendu
     localStorage.setItem(ADMIN_KEY, ADMIN_TOKEN);
     adminPass.value=''; refreshAdminUI();
   });
