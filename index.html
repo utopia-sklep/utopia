@@ -154,14 +154,14 @@
   <div class="box">
     <div id="pTitle" style="font-weight:700;margin-bottom:6px">Ustaw swój profil</div>
     <div class="field"><label class="small" for="nickSet">Nick (np. z Discorda)</label><input id="nickSet" class="input" type="text" placeholder="np. @arek#1234"></div>
-    <div class="field"><label class="small" for="pinSet">PIN (min. 6 cyfr – nie zapisujemy go wprost)</label><input id="pinSet" class="input" type="password" placeholder="np. 123456"></div>
+    <div class="field"><label class="small" for="pinSet">PIN (min. 4 cyfry – nie zapisujemy go wprost)</label><input id="pinSet" class="input" type="password" placeholder="np. 1234"></div>
     <div id="pErr" class="small" style="color:#ff9a9a"></div>
     <div class="row"><button id="pSave" class="btn primary">zapisz</button></div>
   </div>
 </div>
 
 <script>
-  /* === ADRES API (Twój Web App) === */
+  /* === ADRES API === */
   const API_URL = 'https://script.google.com/macros/s/AKfycbyIOOGP_KB1OJdzj5JjBhFAneMwtXFPsuJVQScUqfbpf4oPc0XySkmXjWfzN5N9-k7z9A/exec';
 
   /* === profil (nick + PIN -> ownerId) === */
@@ -184,40 +184,24 @@
   if(!OWNER){ profEl.classList.add('open'); }
   pSave.addEventListener('click', async ()=>{
     const n=(nickSet.value||'').trim(), p=(pinSet.value||'').trim();
-    if(n.length<2||p.length<6){ pErr.textContent='Podaj nick i PIN (min. 6 cyfr).'; return; }
+    if(n.length<2||p.length<4){ pErr.textContent='Podaj nick i PIN (min. 4 cyfry).'; return; }
     await saveOwner(n,p); profEl.classList.remove('open'); loadAndRender();
   });
 
   /* === API === */
   async function apiList(){ const r = await fetch(API_URL+'?action=list'); return r.json(); }
-
-  // POST jako text/plain — mniejszy kłopot z CORS w Apps Script
   async function apiAdd(offer, blob){
     const imgData = blob ? await blobToDataURL(blob) : '';
     const body = JSON.stringify({ action:'add', ...offer, imgData });
-    const r = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      body
-    });
-    const text = await r.text();
-    try { return JSON.parse(text); }
-    catch { return { ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}` }; }
+    const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'text/plain; charset=utf-8' }, body });
+    const text = await r.text(); try { return JSON.parse(text); } catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}`}; }
   }
-
   async function apiDelete(id, typedPin, isOwner){
     const ownerIdTry = (isOwner && OWNER) ? await deriveOwnerId(OWNER.nick, typedPin) : '';
     const body = JSON.stringify({ action:'delete', id, pin:typedPin, ownerIdTry });
-    const r = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      body
-    });
-    const text = await r.text();
-    try { return JSON.parse(text); }
-    catch { return { ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}` }; }
+    const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'text/plain; charset=utf-8' }, body });
+    const text = await r.text(); try { return JSON.parse(text); } catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}`}; }
   }
-
   function blobToDataURL(blob){ return new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(blob); }); }
 
   /* === UI / lista === */
@@ -302,7 +286,7 @@
     closeModal(); await loadAndRender();
   });
 
-  /* === Usuwanie (PIN; admin sprawdzany na serwerze) === */
+  /* === Usuwanie === */
   const confirmEl=document.getElementById('confirm'), cYes=document.getElementById('cYes'), cNo=document.getElementById('cNo'), cErr=document.getElementById('cErr'), pinConfirm=document.getElementById('pinConfirm');
   function askDelete(item){
     confirmEl.classList.add('open'); cErr.textContent=''; pinConfirm.value=''; pinConfirm.focus();
@@ -320,6 +304,7 @@
 
   /* start */
   async function start(){ if(OWNER) await loadAndRender(); else render(); }
+  function setPreviewEmpty(){ /* j/w */ }
   start();
 </script>
 </body>
