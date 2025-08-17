@@ -83,7 +83,7 @@
 
   <section class="grid">
     <aside class="card">
-      <img class="item-img" id="pImg" alt="" src="">
+      <img class="item-img" id="pImg" referrerpolicy="no-referrer" alt="" src="">
       <div class="meta" id="pMeta">
         <div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>
       </div>
@@ -220,7 +220,10 @@
       const tr=document.createElement('tr');
       tr.innerHTML = `
         <td><span class="badge">${it.lvl}</span></td>
-        <td><div style="display:flex;align-items:center;gap:10px"><img class="thumb" alt="miniatura" src="${it.imgUrl||''}"><div style="font-size:12px;color:#aeb6c7">${it.type}</div></div></td>
+        <td><div style="display:flex;align-items:center;gap:10px">
+              <img class="thumb" referrerpolicy="no-referrer" alt="miniatura" src="${it.imgUrl||''}">
+              <div style="font-size:12px;color:#aeb6c7">${it.type}</div>
+            </div></td>
         <td>${it.price}</td>
         <td><a href="#" title="Kopiuj kontakt">${it.contact}</a></td>
         <td><button class="xbtn" title="Usuń ofertę">✕</button></td>`;
