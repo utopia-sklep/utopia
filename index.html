@@ -183,17 +183,22 @@
 </div>
 
 <script>
-  /* === ADRES API === */
+(function(){
+  'use strict';
+  /* === ADRES API (aktualny) === */
   const API_URL = 'https://script.google.com/macros/s/AKfycbz3W6jwL5Ab1PBw_jjvhsAlXz0OtyCYHLQvSdO97RqXm7ZKuYW8wXeKAeJUYaKW-kjARQ/exec';
 
-  /* === profil (nick + PIN -> ownerId) === */
+  /* === Stan i uchwyty === */
   const OWNER_KEY='utopia_owner_v1';
-  const ADMIN_KEY='utopia_admin_token_v1';           // (b64)
-  const ADMIN_KEY_HEX='utopia_admin_token_hex_v1';   // (hex) — nowy klucz
-  let OWNER = loadOwner();
-  let ADMIN_TOKEN = localStorage.getItem(ADMIN_KEY) || '';            // b64 (dla zgodności wstecz)
-  let ADMIN_TOKEN_HEX = localStorage.getItem(ADMIN_KEY_HEX) || '';    // hex (nowa ścieżka)
+  const ADMIN_KEY='utopia_admin_token_v1';
+  const ADMIN_KEY_HEX='utopia_admin_token_hex_v1';
+  let OWNER = null;
+  let ADMIN_TOKEN = '';
+  let ADMIN_TOKEN_HEX = '';
+  let REMOTE = [];
+  const state = { type:'Wszystkie', view:'all', min:'', max:'' };
 
+  // Pomocnicze
   function loadOwner(){ try{return JSON.parse(localStorage.getItem(OWNER_KEY)||'null')}catch(e){return null} }
   async function deriveOwnerId(nick, pin){
     const enc = new TextEncoder();
@@ -202,359 +207,176 @@
     const bits = await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:100000}, keyMat, 256);
     return btoa(String.fromCharCode(...new Uint8Array(bits)));
   }
-  async function saveOwner(nick,pin){
-    const ownerId = await deriveOwnerId(nick,pin);
-    OWNER = {nick, ownerId};
-    localStorage.setItem(OWNER_KEY, JSON.stringify(OWNER));
-  }
-
-  async function sha256b64(str){
-    const enc = new TextEncoder();
-    const hash = await crypto.subtle.digest('SHA-256', enc.encode(str));
-    return btoa(String.fromCharCode(...new Uint8Array(hash)));
-  }
-  async function sha256hex(str){
-    const enc = new TextEncoder();
-    const hash = await crypto.subtle.digest('SHA-256', enc.encode(str));
-    return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
-  }
-
-  /* === API === */
-  async function apiList(){ const r = await fetch(API_URL+'?action=list', {cache:'no-store'}); return r.json(); }
-  async function apiAdd(offer, blob){
-    const imgData = blob ? await blobToDataURL(blob) : '';
-    const body = JSON.stringify({ action:'add', ...offer, imgData });
-    const r = await fetch(API_URL, { method:'POST', mode:'cors', headers:{ 'Content-Type':'text/plain;charset=utf-8' }, body });
-    const text = await r.text();
-    try { return JSON.parse(text); }
-    catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,200)}`}; }
-  }
-  async function apiDelete(id){
-    const body = JSON.stringify({ action:'delete', id,
-      ownerIdTry: OWNER?.ownerId || '', adminToken: ADMIN_TOKEN || '', adminTokenHex: ADMIN_TOKEN_HEX || '' });
-    const r = await fetch(API_URL, { method:'POST', mode:'cors', headers:{ 'Content-Type':'text/plain;charset=utf-8' }, body });
-    const text = await r.text();
-    try { return JSON.parse(text); }
-    catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,200)}`}; }
-  }
-  async function apiUpdate(id, fields, blob){
-    const imgData = blob ? await blobToDataURL(blob) : '';
-    const body = JSON.stringify({ action:'update', id, ...fields,
-      imgData, ownerIdTry: OWNER?.ownerId || '', adminToken: ADMIN_TOKEN || '', adminTokenHex: ADMIN_TOKEN_HEX || '' });
-    const r = await fetch(API_URL, { method:'POST', mode:'cors', headers:{ 'Content-Type':'text/plain;charset=utf-8' }, body });
-    const text = await r.text();
-    try { return JSON.parse(text); }
-    catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,200)}`}; }
-  }
+  async function saveOwner(nick,pin){ const ownerId = await deriveOwnerId(nick,pin); OWNER={nick,ownerId}; localStorage.setItem(OWNER_KEY, JSON.stringify(OWNER)); }
+  async function sha256b64(str){ const hash=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)); return btoa(String.fromCharCode(...new Uint8Array(hash))); }
+  async function sha256hex(str){ const hash=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)); return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
   function blobToDataURL(blob){ return new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(blob); }); }
 
-  /* === Pomocnicze: miniatury i obrazki === */
-  function toThumb(url){
-    if(!url) return '';
-    // Jeśli pełny thumbnail już jest
-    if(url.includes('drive.google.com/thumbnail?id=')) return url;
-    // Link typu /file/d/<ID>/view
-    let m = url.match(/\/file\/d\/([^/]+)/);
-    if(m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600`;
-    // Link z parametrem id=...
-    m = url.match(/[?&]id=([^&]+)/);
-    if(m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600`;
-    // Samo ID pliku (bez protokołu)
-    if(/^[a-zA-Z0-9_-]{20,}$/.test(url)) return `https://drive.google.com/thumbnail?id=${url}&sz=w1600`;
-    // Inne hosty (googleusercontent, własne CDN) — zostaw jak jest
-    return url;
-  }
-  function setImg(el, rawUrl){
-    const primary = toThumb(rawUrl);
-    el.referrerPolicy = 'no-referrer';
-    el.src = primary;
-    el.onerror = ()=>{
-      // Fallback 1: spróbuj bez miniatury
-      if(/^https?:\/\//i.test(rawUrl)){
-        el.onerror=null; el.src = rawUrl; return;
+  // API
+  async function apiList(){ const r = await fetch(API_URL+'?action=list', {cache:'no-store'}); return r.json(); }
+  async function apiAdd(offer, blob){ const imgData = blob ? await blobToDataURL(blob) : ''; const body = JSON.stringify({ action:'add', ...offer, imgData }); const r = await fetch(API_URL, { method:'POST', mode:'cors', headers:{ 'Content-Type':'text/plain;charset=utf-8' }, body }); const text = await r.text(); try { return JSON.parse(text); } catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,200)}`}; } }
+  async function apiDelete(id){ const body = JSON.stringify({ action:'delete', id, ownerIdTry: OWNER?.ownerId||'', adminToken: ADMIN_TOKEN||'', adminTokenHex: ADMIN_TOKEN_HEX||'' }); const r=await fetch(API_URL,{method:'POST',mode:'cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body}); const text=await r.text(); try{return JSON.parse(text)}catch{return{ok:false,error:`HTTP ${r.status} ${text.slice(0,200)}`}} }
+  async function apiUpdate(id, fields, blob){ const imgData = blob ? await blobToDataURL(blob) : ''; const body = JSON.stringify({ action:'update', id, ...fields, imgData, ownerIdTry: OWNER?.ownerId||'', adminToken: ADMIN_TOKEN||'', adminTokenHex: ADMIN_TOKEN_HEX||'' }); const r=await fetch(API_URL,{method:'POST',mode:'cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body}); const text=await r.text(); try{return JSON.parse(text)}catch{return{ok:false,error:`HTTP ${r.status} ${text.slice(0,200)}`}} }
+
+  // Obrazki (Drive)
+  function toThumb(url){ if(!url) return ''; if(url.includes('drive.google.com/thumbnail?id=')) return url; let m=url.match(/\/file\/d\/([^/]+)/); if(m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600`; m=url.match(/[?&]id=([^&]+)/); if(m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600`; if(/^[a-zA-Z0-9_-]{20,}$/.test(url)) return `https://drive.google.com/thumbnail?id=${url}&sz=w1600`; return url; }
+  function setImg(el, rawUrl){ const primary = toThumb(rawUrl||''); el.referrerPolicy='no-referrer'; el.src=primary||''; el.onerror=()=>{ if(/^https?:\/\//i.test(rawUrl)){ el.onerror=null; el.src=rawUrl; return; } if(/^[a-zA-Z0-9_-]{20,}$/.test(rawUrl||'')){ el.onerror=null; el.src=`https://drive.google.com/uc?export=view&id=${rawUrl}`; } } }
+
+  // Po załadowaniu DOM
+  document.addEventListener('DOMContentLoaded', () => {
+    // Uchwyt elementów
+    const tabs = document.querySelectorAll('.tab[data-type]');
+    const viewTabs = document.querySelectorAll('#viewTabs .tab');
+    const minEl = document.getElementById('minLvl');
+    const maxEl = document.getElementById('maxLvl');
+    const tbody = document.getElementById('tbody');
+    const empty = document.getElementById('empty');
+    const previewImg = document.getElementById('pImg');
+
+    // Modale i pola
+    const overlay=document.getElementById('overlay');
+    const addBtn=document.getElementById('addBtn');
+    const closeBtn=document.getElementById('closeBtn');
+    const saveBtn=document.getElementById('saveBtn');
+    const hint=document.getElementById('formHint');
+    const drop=document.getElementById('drop');
+    const dropImg=document.getElementById('dropImg');
+    const dropHint=document.getElementById('dropHint');
+    const imgFile=document.getElementById('imgFile');
+    const lvlIn=document.getElementById('lvlIn');
+    const typeIn=document.getElementById('typeIn');
+    const priceIn=document.getElementById('priceIn');
+    const contactIn=document.getElementById('contactIn');
+    const multiChk=document.getElementById('multiChk');
+    const qtyIn=document.getElementById('qtyIn');
+
+    // Profil & admin
+    const profileEl=document.getElementById('profile');
+    const settingsBtn=document.getElementById('settingsBtn');
+    const pClose=document.getElementById('pClose');
+    const pSave=document.getElementById('pSave');
+    const pReset=document.getElementById('pReset');
+    const pErr=document.getElementById('pErr');
+    const nickSet=document.getElementById('nickSet');
+    const pinSet=document.getElementById('pinSet');
+
+    const adminStatus=document.getElementById('adminStatus');
+    const adminLoginArea=document.getElementById('adminLoginArea');
+    const adminLogoutArea=document.getElementById('adminLogoutArea');
+    const adminPass=document.getElementById('adminPass');
+    const adminLoginBtn=document.getElementById('adminLogin');
+    const adminLogoutBtn=document.getElementById('adminLogout');
+
+    // Stan lokalny
+    OWNER = loadOwner();
+    ADMIN_TOKEN = localStorage.getItem(ADMIN_KEY)||'';
+    ADMIN_TOKEN_HEX = localStorage.getItem(ADMIN_KEY_HEX)||'';
+
+    // Render
+    function setPreviewEmpty(){ if(previewImg) previewImg.src=''; const meta=document.getElementById('pMeta'); if(meta){ meta.innerHTML='<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>'; } }
+    function show(it){ if(previewImg){ setImg(previewImg, it.imgUrl||it.fileId||''); } document.getElementById('pMeta').innerHTML=`<div>Typ: <b>${it.type||'—'}</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`; }
+    function typeMatches(t){ if(state.type==='Wszystkie') return true; if(state.type==='Inny') return t==='Inny'||t==='Inne'; return t===state.type; }
+    function byFilters(x){ if(!typeMatches(x.type)) return false; if(state.min!=='' && x.lvl<state.min) return false; if(state.max!=='' && x.lvl>state.max) return false; if(state.view==='mine'){ if(!OWNER||!OWNER.ownerId) return false; return x.ownerId===OWNER.ownerId; } return true; }
+    function render(){ try{
+      const data = (REMOTE||[]).filter(byFilters).sort((a,b)=>a.lvl-b.lvl || String(a.type).localeCompare(String(b.type)));
+      tbody.innerHTML='';
+      if(!data.length){ empty.hidden=false; setPreviewEmpty(); return; } else empty.hidden=true;
+      for(const it of data){
+        const qtyTxt = (it.qty && Number(it.qty)>1) ? it.qty : '';
+        const isOwner = !!(OWNER && it.ownerId && OWNER.ownerId===it.ownerId);
+        const canAdmin = !!(ADMIN_TOKEN || ADMIN_TOKEN_HEX);
+        const showActions = isOwner || canAdmin;
+        const tr=document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="badge">${it.lvl}</span></td>
+          <td><div style="display:flex;align-items:center;gap:10px">
+                <img class="thumb" referrerpolicy="no-referrer" alt="miniatura">
+                <div style="font-size:12px;color:#aeb6c7">${it.type||''}</div>
+              </div></td>
+          <td>${qtyTxt}</td>
+          <td>${it.price||''}</td>
+          <td><a href="#" title="Kopiuj kontakt">${it.contact||''}</a></td>
+          <td class="actions">${showActions?`<button class="iconbtn edit" title="Edytuj">✎</button><button class="iconbtn del" title="Usuń">✕</button>`:''}</td>`;
+        const imgEl = tr.querySelector('.thumb'); setImg(imgEl, it.imgUrl||it.fileId||'');
+        tr.querySelector('a').addEventListener('click',e=>{e.preventDefault(); if(it.contact) navigator.clipboard.writeText(it.contact);});
+        tr.addEventListener('click',e=>{ if(e.target.closest('.iconbtn')) return; show(it); });
+        if(showActions){ tr.querySelector('.del').addEventListener('click',()=> onDelete(it)); tr.querySelector('.edit').addEventListener('click',()=> onEdit(it)); }
+        tbody.appendChild(tr);
       }
-      // Fallback 2: bezpośrednie uc?export=view&id=...
-      if(/^[a-zA-Z0-9_-]{20,}$/.test(rawUrl)){
-        el.onerror=null; el.src = `https://drive.google.com/uc?export=view&id=${rawUrl}`; return;
-      }
-    };
-  }
-
-  /* === UI / lista === */
-  let REMOTE=[];
-  const tabs=document.querySelectorAll('.tab[data-type]');
-  const viewTabs=document.querySelectorAll('#viewTabs .tab');
-  const minEl=document.getElementById('minLvl'), maxEl=document.getElementById('maxLvl'), tbody=document.getElementById('tbody'), empty=document.getElementById('empty'), previewImg=document.getElementById('pImg');
-  const state={type:'Wszystkie', view:'all', min:'', max:''};
-
-  tabs.forEach(b=>b.addEventListener('click',()=>{state.type=b.dataset.type;tabs.forEach(t=>t.setAttribute('aria-selected',String(t===b)));render()}));
-  viewTabs.forEach(b=>b.addEventListener('click',()=>{state.view=b.dataset.view;viewTabs.forEach(t=>t.setAttribute('aria-selected',String(t===b)));render()}));
-
-  document.getElementById('searchBtn').addEventListener('click',()=>{state.min=minEl.value?+minEl.value:'';state.max=maxEl.value?+maxEl.value:'';render()});
-  document.getElementById('resetBtn').addEventListener('click',()=>{minEl.value=maxEl.value='';state.min=state.max='';state.type='Wszystkie';state.view='all';tabs.forEach(t=>t.setAttribute('aria-selected',t.dataset.type==='Wszystkie'));viewTabs.forEach(t=>t.setAttribute('aria-selected',t.dataset.view==='all'));render()});
-
-  function typeMatches(t){ if(state.type==='Wszystkie') return true; if(state.type==='Inny') return t==='Inny'||t==='Inne'; return t===state.type; }
-  function byFilters(x){
-    if(!typeMatches(x.type)) return false;
-    if(state.min!=='' && x.lvl<state.min) return false;
-    if(state.max!=='' && x.lvl>state.max) return false;
-    if(state.view==='mine'){
-      if(!OWNER || !OWNER.ownerId) return false;
-      return x.ownerId === OWNER.ownerId;
+      if(data[0]) show(data[0]); else setPreviewEmpty();
+    } catch(err){ console.error('render error', err); }
     }
-    return true;
-  }
 
-  async function loadAndRender(){
-    REMOTE = await apiList();
-    render();
-  }
+    async function loadAndRender(){ try{ REMOTE = await apiList(); render(); } catch(e){ console.error('apiList error', e); } }
 
-  function render(){
-    const data = REMOTE.filter(byFilters).sort((a,b)=>a.lvl-b.lvl || a.type.localeCompare(b.type));
-    tbody.innerHTML=''; if(!data.length){ empty.hidden=false; setPreviewEmpty(); return } else empty.hidden=true;
-    for(const it of data){
-      const qtyTxt = (it.qty && Number(it.qty)>1) ? it.qty : '';
-      const isOwner = !!(OWNER && it.ownerId && OWNER.ownerId===it.ownerId);
-      const canAdmin = !!(ADMIN_TOKEN || ADMIN_TOKEN_HEX);
-      const showActions = isOwner || canAdmin;
+    // Bind UI — zakładki
+    tabs.forEach(b=> b.addEventListener('click',()=>{ state.type=b.dataset.type; tabs.forEach(t=>t.setAttribute('aria-selected', String(t===b))); render(); }));
+    viewTabs.forEach(b=> b.addEventListener('click',()=>{ state.view=b.dataset.view; viewTabs.forEach(t=>t.setAttribute('aria-selected', String(t===b))); render(); }));
 
-      const tr=document.createElement('tr');
-      tr.innerHTML = `
-        <td><span class="badge">${it.lvl}</span></td>
-        <td><div style="display:flex;align-items:center;gap:10px">
-              <img class="thumb" referrerpolicy="no-referrer" alt="miniatura">
-              <div style="font-size:12px;color:#aeb6c7">${it.type||''}</div>
-            </div></td>
-        <td>${qtyTxt}</td>
-        <td>${it.price||''}</td>
-        <td><a href="#" title="Kopiuj kontakt">${it.contact||''}</a></td>
-        <td class="actions">${showActions?`
-          <button class="iconbtn edit" title="Edytuj">✎</button>
-          <button class="iconbtn del"  title="Usuń">✕</button>`:''}
-        </td>`;
+    // Filtry
+    document.getElementById('searchBtn').addEventListener('click',()=>{ state.min=minEl.value?+minEl.value:''; state.max=maxEl.value?+maxEl.value:''; render(); });
+    document.getElementById('resetBtn').addEventListener('click',()=>{ minEl.value=maxEl.value=''; state.min=state.max=''; state.type='Wszystkie'; state.view='all'; tabs.forEach(t=>t.setAttribute('aria-selected', t.dataset.type==='Wszystkie')); viewTabs.forEach(t=>t.setAttribute('aria-selected', t.dataset.view==='all')); render(); });
 
-      // Ustawienie obrazka z fallbackami
-      const imgEl = tr.querySelector('.thumb');
-      setImg(imgEl, it.imgUrl||it.fileId||'');
+    // Dodawanie / Edycja
+    let imageBlob=null, EDIT_MODE=false, CURRENT=null;
+    multiChk.addEventListener('change',()=>{ qtyIn.disabled = !multiChk.checked; if(!multiChk.checked) qtyIn.value=''; });
+    function openModal(edit=false, item=null){ EDIT_MODE=edit; CURRENT=item; document.getElementById('titleAdd').textContent = edit ? 'Edytuj ofertę' : 'Dodawanie oferty'; saveBtn.textContent='Zapisz'; overlay.classList.add('open'); hint.textContent=''; saveBtn.disabled=false; drop.focus(); imageBlob=null; dropImg.style.display='none'; dropHint.style.display='block'; lvlIn.value=priceIn.value=contactIn.value=''; typeIn.value='Legendarny'; multiChk.checked=false; qtyIn.disabled=true; qtyIn.value=''; if(edit && item){ lvlIn.value=item.lvl; typeIn.value=item.type; priceIn.value=item.price; contactIn.value=item.contact; if(item.qty && Number(item.qty)>1){ multiChk.checked=true; qtyIn.disabled=false; qtyIn.value=item.qty; } if(item.imgUrl||item.fileId){ setImg(dropImg, item.imgUrl||item.fileId); dropImg.style.display='block'; dropHint.style.display='none'; } } }
+    function closeModal(){ overlay.classList.remove('open'); }
+    addBtn.addEventListener('click',()=>openModal(false,null));
+    closeBtn.addEventListener('click',closeModal);
+    overlay.addEventListener('click',e=>{ if(e.target===overlay) closeModal(); });
+    document.addEventListener('keydown',e=>{ if(overlay.classList.contains('open') && e.key==='Escape') closeModal(); });
 
-      tr.querySelector('a').addEventListener('click',e=>{e.preventDefault(); if(it.contact) navigator.clipboard.writeText(it.contact);});
-      tr.addEventListener('click',e=>{ if(e.target.closest('.iconbtn')) return; show(it); });
-      if(showActions){
-        tr.querySelector('.del').addEventListener('click',()=> onDelete(it));
-        tr.querySelector('.edit').addEventListener('click',()=> onEdit(it));
-      }
-      tbody.appendChild(tr);
-    }
-    if(data[0]) show(data[0]); else setPreviewEmpty();
-  }
-  function setPreviewEmpty(){
-  // wersja stabilna (przed ukrywaniem obrazka)
-  if (previewImg) previewImg.src = '';
-  const meta = document.getElementById('pMeta');
-  if (meta){
-    meta.innerHTML = `<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`;
-  }
-}
-      const meta = document.getElementById('pMeta');
-      if (meta){
-        meta.innerHTML = '<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>';
-      }
-    }catch(err){ console.error('setPreviewEmpty error', err); }
-  }
-    const meta = document.getElementById('pMeta');
-    if (meta){
-      meta.innerHTML = `<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`;
-    }
-  }
-  function show(it){
-  if (previewImg){
-    setImg(previewImg, it.imgUrl||it.fileId||'');
-  }
-  document.getElementById('pMeta').innerHTML =
-    `<div>Typ: <b>${it.type||'—'}</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`;
-}
-      document.getElementById('pMeta').innerHTML =
-        `<div>Typ: <b>${it.type||'—'}</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`;
-    }catch(err){ console.error('show error', err); }
-  }
-    document.getElementById('pMeta').innerHTML =
-      `<div>Typ: <b>${it.type||'—'}</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`;
-  }</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`;
-  }
+    ;['dragenter','dragover','dragleave','drop'].forEach(ev=> drop.addEventListener(ev, e=>{e.preventDefault();e.stopPropagation()}));
+    drop.addEventListener('click',()=>imgFile.click());
+    drop.addEventListener('drop',e=> handleFiles(e.dataTransfer.files));
+    imgFile.addEventListener('change',()=>handleFiles(imgFile.files));
+    document.addEventListener('paste',e=>{ if(!overlay.classList.contains('open')) return; const items=e.clipboardData&&e.clipboardData.items; if(!items) return; for(const it of items){ if(it.type&&it.type.startsWith('image/')){ const f=it.getAsFile(); if(f) handleFile(f); break; } } });
+    function handleFiles(list){ if(list&&list[0]) handleFile(list[0]); }
+    function handleFile(file){ if(!file.type.startsWith('image/')){ hint.textContent='To nie jest obraz.'; return } const reader=new FileReader(); reader.onload = ev => compressToMax(ev.target.result,800,blob=>{ imageBlob=blob; dropImg.src=URL.createObjectURL(blob); dropImg.style.display='block'; dropHint.style.display='none'; }); reader.readAsDataURL(file); }
+    function compressToMax(dataUrl,max,cb){ const img=new Image(); img.onload=()=>{ const s=Math.min(1,max/Math.max(img.width,img.height)); const w=Math.round(img.width*s),h=Math.round(img.height*s); const c=document.createElement('canvas'); c.width=w;c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); c.toBlob(b=>cb(b),'image/png',0.95); }; img.src=dataUrl; }
 
-  /* === Dodawanie / Edycja === */
-  const overlay=document.getElementById('overlay'), addBtn=document.getElementById('addBtn'), closeBtn=document.getElementById('closeBtn'), saveBtn=document.getElementById('saveBtn'), hint=document.getElementById('formHint');
-  const drop=document.getElementById('drop'), dropImg=document.getElementById('dropImg'), dropHint=document.getElementById('dropHint'), imgFile=document.getElementById('imgFile');
-  const lvlIn=document.getElementById('lvlIn'), typeIn=document.getElementById('typeIn'), priceIn=document.getElementById('priceIn'), contactIn=document.getElementById('contactIn');
-  const multiChk=document.getElementById('multiChk'), qtyIn=document.getElementById('qtyIn');
-  let imageBlob=null, EDIT_MODE=false, CURRENT=null;
-
-  multiChk.addEventListener('change',()=>{ qtyIn.disabled = !multiChk.checked; if(!multiChk.checked) qtyIn.value=''; });
-
-  function openModal(edit=false, item=null){
-    EDIT_MODE = edit; CURRENT = item;
-    document.getElementById('titleAdd').textContent = edit ? 'Edytuj ofertę' : 'Dodawanie oferty';
-    saveBtn.textContent = 'Zapisz';
-    overlay.classList.add('open'); hint.textContent=''; saveBtn.disabled=false; drop.focus();
-
-    imageBlob=null; dropImg.style.display='none'; dropHint.style.display='block';
-    lvlIn.value=priceIn.value=contactIn.value=''; typeIn.value='Legendarny'; multiChk.checked=false; qtyIn.disabled=true; qtyIn.value='';
-
-    if(edit && item){
-      lvlIn.value = item.lvl; typeIn.value = item.type; priceIn.value = item.price; contactIn.value = item.contact;
-      if(item.qty && Number(item.qty)>1){ multiChk.checked=true; qtyIn.disabled=false; qtyIn.value=item.qty; }
-      if(item.imgUrl||item.fileId){ setImg(dropImg, item.imgUrl||item.fileId); dropImg.style.display='block'; dropHint.style.display='none'; }
-    }
-  }
-  function closeModal(){ overlay.classList.remove('open'); }
-
-  addBtn.addEventListener('click',()=>openModal(false,null));
-  closeBtn.addEventListener('click',closeModal);
-  overlay.addEventListener('click',e=>{if(e.target===overlay) closeModal()});
-  document.addEventListener('keydown',e=>{if(overlay.classList.contains('open')&&e.key==='Escape') closeModal()});
-
-  ;['dragenter','dragover','dragleave','drop'].forEach(ev=> drop.addEventListener(ev, e=>{e.preventDefault();e.stopPropagation()}));
-  drop.addEventListener('click',()=>imgFile.click());
-  drop.addEventListener('drop',e=> handleFiles(e.dataTransfer.files));
-  imgFile.addEventListener('change',()=>handleFiles(imgFile.files));
-  document.addEventListener('paste',e=>{
-    if(!overlay.classList.contains('open')) return;
-    const items=e.clipboardData&&e.clipboardData.items; if(!items) return;
-    for(const it of items){ if(it.type&&it.type.startsWith('image/')){ const f=it.getAsFile(); if(f) handleFile(f); break; } }
-  });
-  function handleFiles(list){ if(list&&list[0]) handleFile(list[0]) }
-  function handleFile(file){
-    if(!file.type.startsWith('image/')){ hint.textContent='To nie jest obraz.'; return }
-    const reader=new FileReader();
-    reader.onload = ev => compressToMax(ev.target.result,800,blob=>{ imageBlob=blob; dropImg.src=URL.createObjectURL(blob); dropImg.style.display='block'; dropHint.style.display='none'; });
-    reader.readAsDataURL(file);
-  }
-  function compressToMax(dataUrl,max,cb){ const img=new Image(); img.onload=()=>{ const s=Math.min(1,max/Math.max(img.width,img.height)); const w=Math.round(img.width*s),h=Math.round(img.height*s); const c=document.createElement('canvas'); c.width=w;c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); c.toBlob(b=>cb(b),'image/png',0.95); }; img.src=dataUrl; }
-
-  saveBtn.addEventListener('click', async ()=>{
-    const lvl=parseInt(lvlIn.value,10), type=typeIn.value, price=(priceIn.value||'').trim(), contact=(contactIn.value||'').trim();
-    const qty = multiChk.checked ? Math.max(2, parseInt(qtyIn.value||'2',10)) : 1;
-    if(!lvl||!price||!contact){ hint.textContent='Uzupełnij: lvl, cena, kontakt.'; return }
-    saveBtn.disabled=true;
-
-    if(!EDIT_MODE){
-      const offer = { type, lvl, price, qty, contact, ownerId: OWNER?.ownerId||'' };
-      let res;
+    saveBtn.addEventListener('click', async ()=>{
+      const lvl=parseInt(lvlIn.value,10), type=typeIn.value, price=(priceIn.value||'').trim(), contact=(contactIn.value||'').trim();
+      const qty = multiChk.checked ? Math.max(2, parseInt(qtyIn.value||'2',10)) : 1;
+      if(!lvl||!price||!contact){ hint.textContent='Uzupełnij: lvl, cena, kontakt.'; return }
+      saveBtn.disabled=true;
       try {
-        res = await apiAdd(offer, imageBlob);
-      } catch (e) {
-        res = { ok:false, error: (e && e.message) ? e.message : String(e) };
-      }
-      saveBtn.disabled=false;
-      if(!res || !res.ok){
-        console.error('Save error response:', res);
-        hint.textContent = 'Błąd zapisu: ' + (res && res.error ? res.error : 'spróbuj ponownie.');
-        return;
-      }
-    } else {
-      const fields = { type, lvl, price, qty, contact };
-      let res;
-      try {
-        res = await apiUpdate(CURRENT.id, fields, imageBlob);
-      } catch (e) {
-        res = { ok:false, error: (e && e.message) ? e.message : String(e) };
-      }
-      saveBtn.disabled=false;
-      if(!res || !res.ok){
-        console.error('Update error response:', res);
-        hint.textContent = 'Błąd edycji: ' + (res && res.error ? res.error : 'spróbuj ponownie.');
-        return;
-      }
-    }
-    closeModal(); await loadAndRender();
+        if(!EDIT_MODE){
+          const offer = { type, lvl, price, qty, contact, ownerId: OWNER?.ownerId||'' };
+          const res = await apiAdd(offer, imageBlob);
+          if(!res || !res.ok){ throw new Error(res && res.error || 'Błąd zapisu'); }
+        } else {
+          const fields = { type, lvl, price, qty, contact };
+          const res = await apiUpdate(CURRENT.id, fields, imageBlob);
+          if(!res || !res.ok){ throw new Error(res && res.error || 'Błąd edycji'); }
+        }
+        closeModal(); await loadAndRender();
+      } catch(e){
+        console.error('Save/Update error:', e);
+        hint.textContent = (EDIT_MODE?'Błąd edycji: ':'Błąd zapisu: ')+(e && e.message || 'spróbuj ponownie.');
+      } finally { saveBtn.disabled=false; }
+    });
+
+    async function onDelete(item){ try{ const res=await apiDelete(item.id); if(!res.ok) throw new Error(res.error||'Błąd'); await loadAndRender(); } catch(e){ alert(e.message||'Błąd operacji.'); } }
+    function onEdit(item){ openModal(true,item); }
+
+    // Ustawienia (profil)
+    settingsBtn.addEventListener('click',()=>{ nickSet.value=OWNER?.nick||''; pinSet.value=''; pErr.textContent=''; profileEl.classList.add('open'); });
+    pClose.addEventListener('click',()=>profileEl.classList.remove('open'));
+    profileEl.addEventListener('click',e=>{ if(e.target===profileEl) profileEl.classList.remove('open'); });
+    pSave.addEventListener('click', async ()=>{ const n=(nickSet.value||'').trim(), p=(pinSet.value||'').trim(); if(n.length<2||p.length<4){ pErr.textContent='Podaj nick i PIN (min. 4 cyfry).'; return; } await saveOwner(n,p); profileEl.classList.remove('open'); await loadAndRender(); });
+    pReset.addEventListener('click',()=>{ localStorage.removeItem(OWNER_KEY); OWNER=null; profileEl.classList.remove('open'); loadAndRender(); });
+
+    // Admin login
+    function refreshAdminUI(){ if(ADMIN_TOKEN || ADMIN_TOKEN_HEX){ adminStatus.innerHTML='<b>Admin:</b> zalogowany'; adminLoginArea.style.display='none'; adminLogoutArea.style.display='block'; } else { adminStatus.innerHTML='<b>Admin:</b> nie zalogowany'; adminLoginArea.style.display='block'; adminLogoutArea.style.display='none'; } render(); }
+    adminLoginBtn.addEventListener('click', async ()=>{ const pw=(adminPass.value||'').trim(); if(!pw) return; ADMIN_TOKEN=await sha256b64(pw); ADMIN_TOKEN_HEX=await sha256hex(pw); localStorage.setItem(ADMIN_KEY,ADMIN_TOKEN); localStorage.setItem(ADMIN_KEY_HEX,ADMIN_TOKEN_HEX); adminPass.value=''; refreshAdminUI(); });
+    adminLogoutBtn.addEventListener('click', ()=>{ ADMIN_TOKEN=''; ADMIN_TOKEN_HEX=''; localStorage.removeItem(ADMIN_KEY); localStorage.removeItem(ADMIN_KEY_HEX); refreshAdminUI(); });
+
+    // Start
+    (async function start(){ await loadAndRender(); refreshAdminUI(); })();
   });
-
-  async function onDelete(item){
-    const res = await apiDelete(item.id).catch(()=>({ok:false}));
-    if(!res.ok){ alert(res.error || 'Błąd operacji.'); return }
-    await loadAndRender();
-  }
-  function onEdit(item){ openModal(true,item); }
-
-  /* === Ustawienia (profil) === */
-  const profileEl=document.getElementById('profile'), settingsBtn=document.getElementById('settingsBtn');
-  const pClose=document.getElementById('pClose'), pSave=document.getElementById('pSave'), pReset=document.getElementById('pReset'), pErr=document.getElementById('pErr');
-  const nickSet=document.getElementById('nickSet'), pinSet=document.getElementById('pinSet');
-
-  settingsBtn.addEventListener('click',()=>{ nickSet.value=OWNER?.nick||''; pinSet.value=''; pErr.textContent=''; profileEl.classList.add('open'); });
-  pClose.addEventListener('click',()=>profileEl.classList.remove('open'));
-  profileEl.addEventListener('click',e=>{ if(e.target===profileEl) profileEl.classList.remove('open'); });
-
-  pSave.addEventListener('click', async ()=>{
-    const n=(nickSet.value||'').trim(), p=(pinSet.value||'').trim();
-    if(n.length<2||p.length<4){ pErr.textContent='Podaj nick i PIN (min. 4 cyfry).'; return; }
-    await saveOwner(n,p); profileEl.classList.remove('open'); await loadAndRender();
-  });
-  pReset.addEventListener('click',()=>{
-    localStorage.removeItem(OWNER_KEY); OWNER=null; profileEl.classList.remove('open'); loadAndRender();
-  });
-
-  /* === Admin login === */
-  const adminStatus=document.getElementById('adminStatus');
-  const adminLoginArea=document.getElementById('adminLoginArea');
-  const adminLogoutArea=document.getElementById('adminLogoutArea');
-  const adminPass=document.getElementById('adminPass');
-  const adminLoginBtn=document.getElementById('adminLogin');
-  const adminLogoutBtn=document.getElementById('adminLogout');
-
-  function refreshAdminUI(){
-    if(ADMIN_TOKEN || ADMIN_TOKEN_HEX){
-      adminStatus.innerHTML = '<b>Admin:</b> zalogowany';
-      adminLoginArea.style.display='none';
-      adminLogoutArea.style.display='block';
-    }else{
-      adminStatus.innerHTML = '<b>Admin:</b> nie zalogowany';
-      adminLoginArea.style.display='block';
-      adminLogoutArea.style.display='none';
-    }
-    render();
-  }
-  adminLoginBtn.addEventListener('click', async ()=>{
-    const pw=(adminPass.value||'').trim(); if(!pw) return;
-    // Wylicz obie wersje tokenu dla kompatybilności z backendem
-    ADMIN_TOKEN = await sha256b64(pw);
-    ADMIN_TOKEN_HEX = await sha256hex(pw);
-    localStorage.setItem(ADMIN_KEY, ADMIN_TOKEN);
-    localStorage.setItem(ADMIN_KEY_HEX, ADMIN_TOKEN_HEX);
-    adminPass.value=''; refreshAdminUI();
-  });
-  adminLogoutBtn.addEventListener('click', ()=>{
-    ADMIN_TOKEN=''; ADMIN_TOKEN_HEX='';
-    localStorage.removeItem(ADMIN_KEY); localStorage.removeItem(ADMIN_KEY_HEX);
-    refreshAdminUI();
-  });
-
-  /* start */
-  function syncTabs(){ tabs.forEach(t=> t.setAttribute('aria-selected', String(t.dataset.type===state.type))); viewTabs.forEach(t=> t.setAttribute('aria-selected', String(t.dataset.view===state.view))); }
-  function syncTabs(){ tabs.forEach(t=> t.setAttribute('aria-selected', String(t.dataset.type===state.type))); viewTabs.forEach(t=> t.setAttribute('aria-selected', String(t.dataset.view===state.view))); }
-  async function start(){ await loadAndRender(); refreshAdminUI(); }
-  window.addEventListener('error', e=>{ console.error('Global error:', e.message, e.error); });
-  function setPreviewEmpty(){
-  // wersja stabilna (przed ukrywaniem obrazka)
-  if (previewImg) previewImg.src = '';
-  const meta = document.getElementById('pMeta');
-  if (meta){
-    meta.innerHTML = `<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`;
-  }
-}
-      const meta = document.getElementById('pMeta');
-      if (meta){
-        meta.innerHTML = '<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>';
-      }
-    }catch(err){ console.error('setPreviewEmpty error', err); }
-  }
-    const meta = document.getElementById('pMeta');
-    if (meta){
-      meta.innerHTML = `<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`;
-    }
-  }
-  start();
+})();
 </script>
 </body>
 </html>
