@@ -220,7 +220,8 @@
 
   // Obrazki (Drive)
   function toThumb(url){ if(!url) return ''; if(url.includes('drive.google.com/thumbnail?id=')) return url; let m=url.match(/\/file\/d\/([^/]+)/); if(m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600`; m=url.match(/[?&]id=([^&]+)/); if(m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600`; if(/^[a-zA-Z0-9_-]{20,}$/.test(url)) return `https://drive.google.com/thumbnail?id=${url}&sz=w1600`; return url; }
-  function setImg(el, rawUrl){ const primary = toThumb(rawUrl||''); el.referrerPolicy='no-referrer'; el.src=primary||''; el.onerror=()=>{ if(/^https?:\/\//i.test(rawUrl)){ el.onerror=null; el.src=rawUrl; return; } if(/^[a-zA-Z0-9_-]{20,}$/.test(rawUrl||'')){ el.onerror=null; el.src=`https://drive.google.com/uc?export=view&id=${rawUrl}`; } } }
+  function setImg(el, rawUrl){ const primary = toThumb(rawUrl||''); el.referrerPolicy='no-referrer'; el.onerror=()=>{ if(/^https?:\/\//i.test(rawUrl)){ el.onerror=null; el.src=rawUrl; return; } if(/^[a-zA-Z0-9_-]{20,}$/.test(rawUrl||'')){ el.onerror=null; el.src=`https://drive.google.com/uc?export=view&id=${rawUrl}`; } }; el.src=primary||''; }
+    function clearImg(el){ if(!el) return; el.onerror=null; el.src=''; el.hidden=true; } if(/^[a-zA-Z0-9_-]{20,}$/.test(rawUrl||'')){ el.onerror=null; el.src=`https://drive.google.com/uc?export=view&id=${rawUrl}`; } } }
 
   // Po załadowaniu DOM
   document.addEventListener('DOMContentLoaded', () => {
@@ -275,28 +276,12 @@
 
     // Render
     function setPreviewEmpty(){
-      if (previewImg){
-        // ważne: wyłącz fallback ustawiony w setImg, bo inaczej "src=''" wywoła onerror i przywróci stare zdjęcie
-        previewImg.onerror = null;
-        previewImg.src = '';
-        previewImg.hidden = true;
-      }
-      if (pMeta){
-        pMeta.innerHTML = '<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>';
-      }
-    }
-      if (pMeta){
-        pMeta.innerHTML = '<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>';
-      }
+      if (previewImg){ previewImg.onerror=null; previewImg.src=''; previewImg.hidden=true; }
+      if (pMeta){ pMeta.innerHTML = '<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>'; }
     }
     function show(it){
-      if (previewImg){
-        previewImg.hidden = false;
-        setImg(previewImg, it.imgUrl||it.fileId||'');
-      }
-      if (pMeta){
-        pMeta.innerHTML = `<div>Typ: <b>${it.type||'—'}</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`;
-      }
+      if (previewImg){ previewImg.hidden=false; setImg(previewImg, it.imgUrl||it.fileId||''); }
+      if (pMeta){ pMeta.innerHTML = `<div>Typ: <b>${it.type||'—'}</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`; }
     }
     function typeMatches(t){ if(state.type==='Wszystkie') return true; if(state.type==='Inny') return t==='Inny'||t==='Inne'; return t===state.type; }
     function byFilters(x){ if(!typeMatches(x.type)) return false; if(state.min!=='' && x.lvl<state.min) return false; if(state.max!=='' && x.lvl>state.max) return false; if(state.view==='mine'){ if(!OWNER||!OWNER.ownerId) return false; return x.ownerId===OWNER.ownerId; } return true; }
