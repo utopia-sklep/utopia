@@ -57,6 +57,8 @@
   .confirm .row{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
   .field{display:flex;flex-direction:column;gap:6px;margin-top:8px}
   .small{font-size:12px;color:var(--muted)}
+  .actions{white-space:nowrap}
+  .iconbtn{border:var(--border);background:#0f141b;color:var(--text);border-radius:8px;height:34px;padding:0 10px;cursor:pointer;margin-right:6px}
 </style>
 </head>
 <body>
@@ -91,7 +93,9 @@
 
     <section class="table">
       <table>
-        <thead><tr><th>lvl</th><th>przedmiot</th><th>cena</th><th>kontakt dc.</th><th></th></tr></thead>
+        <thead>
+          <tr><th>lvl</th><th>przedmiot</th><th>ilość</th><th>cena</th><th>kontakt dc.</th><th></th></tr>
+        </thead>
         <tbody id="tbody"></tbody>
       </table>
       <div id="empty" class="empty">Brak ofert — dodaj pierwszą! 🙂</div>
@@ -99,7 +103,7 @@
   </section>
 </div>
 
-<!-- MODAL: dodawanie -->
+<!-- MODAL: dodawanie/edycja -->
 <div id="overlay" class="overlay">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="titleAdd">
     <header><h2 id="titleAdd">Dodawanie oferty</h2><button class="closeBtn" id="closeBtn">Zamknij ✕</button></header>
@@ -111,7 +115,6 @@
             <img id="dropImg" alt="" style="display:none">
             <input id="imgFile" type="file" accept="image/*" hidden>
           </div>
-          <div class="hint">Obraz kompresujemy do max. 800 px i wysyłamy do serwera.</div>
         </div>
         <div>
           <div class="cols">
@@ -119,6 +122,10 @@
             <select id="typeIn" class="input"><option>Legendarny</option><option>Heroiczny</option><option>Unikatowy</option><option>Inny</option></select>
             <input id="priceIn" class="input" type="text" placeholder="cena (np. 500m)">
             <input id="contactIn" class="input" type="text" placeholder="kontakt (np. @twójNick)">
+            <label class="input" style="display:flex;align-items:center;gap:8px">
+              <input type="checkbox" id="multiChk"> Więcej niż jeden
+            </label>
+            <input id="qtyIn" class="input" type="number" min="2" placeholder="ilość" disabled>
           </div>
           <div id="formHint" class="hint" style="margin-top:8px"></div>
         </div>
@@ -130,36 +137,25 @@
   </div>
 </div>
 
-<!-- MODAL: usuwanie -->
+<!-- MODAL: PIN (używany i do usuwania, i do edycji) -->
 <div id="confirm" class="confirm" role="dialog" aria-modal="true" aria-labelledby="cTitle">
   <div class="box">
     <div id="cTitle" style="font-weight:700;margin-bottom:6px">Potwierdzenie</div>
-    <div>Czy na pewno chcesz zamknąć ofertę?</div>
-    <div class="field">
-      <label class="small" for="pinConfirm">Wpisz <b>PIN</b>, aby potwierdzić</label>
+    <div id="cMsg">Podaj PIN, aby potwierdzić.</div>
+    <div class="field" style="margin-top:8px">
+      <label class="small" for="pinConfirm">PIN</label>
       <input id="pinConfirm" class="input" type="password" placeholder="PIN" inputmode="numeric" pattern="[0-9]*">
     </div>
     <div id="cErr" class="small" style="color:#ff9a9a"></div>
-    <div class="row"><button id="cNo" class="btn">nie</button><button id="cYes" class="btn primary">tak</button></div>
-  </div>
-</div>
-
-<!-- MODAL: profil -->
-<div id="profile" class="confirm" role="dialog" aria-modal="true" aria-labelledby="pTitle">
-  <div class="box">
-    <div id="pTitle" style="font-weight:700;margin-bottom:6px">Ustaw swój profil</div>
-    <div class="field"><label class="small" for="nickSet">Nick (np. z Discorda)</label><input id="nickSet" class="input" type="text" placeholder="np. @arek#1234"></div>
-    <div class="field"><label class="small" for="pinSet">PIN (min. 4 cyfry – nie zapisujemy go wprost)</label><input id="pinSet" class="input" type="password" placeholder="np. 1234" inputmode="numeric" pattern="[0-9]*"></div>
-    <div id="pErr" class="small" style="color:#ff9a9a"></div>
-    <div class="row"><button id="pSave" class="btn primary">zapisz</button></div>
+    <div class="row"><button id="cNo" class="btn">anuluj</button><button id="cYes" class="btn primary">ok</button></div>
   </div>
 </div>
 
 <script>
-  /* === ADRES API (podmień, jeśli potrzebujesz) === */
+  /* === ADRES API === */
   const API_URL = 'https://script.google.com/macros/s/AKfycbzWPygueePL-z1re__YROKMhY_mgiIbKp64mVdDgvovjBb5jxTe3RjgISQUEVbHZnvGVQ/exec';
 
-  /* === profil: nick + PIN -> ownerId (lokalnie) === */
+  /* === profil (nick + PIN -> ownerId) === */
   const OWNER_KEY='utopia_owner_v1';
   let OWNER = loadOwner();
   function loadOwner(){ try{return JSON.parse(localStorage.getItem(OWNER_KEY)||'null')}catch(e){return null} }
@@ -170,18 +166,6 @@
     const bits = await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:100000}, keyMat, 256);
     return btoa(String.fromCharCode(...new Uint8Array(bits)));
   }
-  async function saveOwner(nick,pin){
-    const ownerId = await deriveOwnerId(nick,pin);
-    OWNER = {nick, ownerId};
-    localStorage.setItem(OWNER_KEY, JSON.stringify(OWNER));
-  }
-  const profEl=document.getElementById('profile'), pSave=document.getElementById('pSave'), pErr=document.getElementById('pErr'), nickSet=document.getElementById('nickSet'), pinSet=document.getElementById('pinSet');
-  if(!OWNER){ profEl.classList.add('open'); }
-  pSave.addEventListener('click', async ()=>{
-    const n=(nickSet.value||'').trim(), p=(pinSet.value||'').trim();
-    if(n.length<2||p.length<4){ pErr.textContent='Podaj nick i PIN (min. 4 cyfry).'; return; }
-    await saveOwner(n,p); profEl.classList.remove('open'); loadAndRender();
-  });
 
   /* === API === */
   async function apiList(){ const r = await fetch(API_URL+'?action=list'); return r.json(); }
@@ -194,6 +178,13 @@
   async function apiDelete(id, typedPin, isOwner){
     const ownerIdTry = (isOwner && OWNER) ? await deriveOwnerId(OWNER.nick, typedPin) : '';
     const body = JSON.stringify({ action:'delete', id, pin:typedPin, ownerIdTry });
+    const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'text/plain; charset=utf-8' }, body });
+    const text = await r.text(); try { return JSON.parse(text); } catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}`}; }
+  }
+  async function apiUpdate(id, fields, typedPin, isOwner, blob){
+    const ownerIdTry = (isOwner && OWNER) ? await deriveOwnerId(OWNER.nick, typedPin) : '';
+    const imgData = blob ? await blobToDataURL(blob) : '';
+    const body = JSON.stringify({ action:'update', id, ...fields, imgData, pin:typedPin, ownerIdTry });
     const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'text/plain; charset=utf-8' }, body });
     const text = await r.text(); try { return JSON.parse(text); } catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}`}; }
   }
@@ -212,7 +203,6 @@
   function typeMatches(t){ if(state.type==='Wszystkie') return true; if(state.type==='Inny') return t==='Inny'||t==='Inne'; return t===state.type; }
   function byFilters(x){ if(!typeMatches(x.type)) return false; if(state.min!=='' && x.lvl<state.min) return false; if(state.max!=='' && x.lvl>state.max) return false; return true; }
 
-  // awaryjna konwersja na miniaturę po stronie frontu
   function toThumb(url){
     if (!url) return '';
     if (url.includes('thumbnail?id=')) return url;
@@ -220,15 +210,13 @@
     return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600` : url;
   }
 
-  async function loadAndRender(){
-    REMOTE = await apiList();
-    render();
-  }
+  async function loadAndRender(){ REMOTE = await apiList(); render(); }
 
   function render(){
     const data = REMOTE.filter(byFilters).sort((a,b)=>a.lvl-b.lvl || a.type.localeCompare(b.type));
     tbody.innerHTML=''; if(!data.length){ empty.hidden=false; setPreviewEmpty(); return } else empty.hidden=true;
     for(const it of data){
+      const qtyTxt = (it.qty && Number(it.qty)>1) ? it.qty : '';
       const tr=document.createElement('tr');
       tr.innerHTML = `
         <td><span class="badge">${it.lvl}</span></td>
@@ -236,12 +224,17 @@
               <img class="thumb" referrerpolicy="no-referrer" alt="miniatura" src="${toThumb(it.imgUrl)}">
               <div style="font-size:12px;color:#aeb6c7">${it.type}</div>
             </div></td>
+        <td>${qtyTxt}</td>
         <td>${it.price}</td>
         <td><a href="#" title="Kopiuj kontakt">${it.contact}</a></td>
-        <td><button class="xbtn" title="Usuń ofertę">✕</button></td>`;
+        <td class="actions">
+          <button class="iconbtn edit" title="Edytuj">✎</button>
+          <button class="iconbtn del"  title="Usuń">✕</button>
+        </td>`;
       tr.querySelector('a').addEventListener('click',e=>{e.preventDefault();navigator.clipboard.writeText(it.contact);});
-      tr.addEventListener('click',e=>{ if(e.target.closest('.xbtn')) return; show(it); });
-      tr.querySelector('.xbtn').addEventListener('click',()=> askDelete(it));
+      tr.addEventListener('click',e=>{ if(e.target.closest('.iconbtn')) return; show(it); });
+      tr.querySelector('.del').addEventListener('click',()=> onDelete(it));
+      tr.querySelector('.edit').addEventListener('click',()=> onEdit(it));
       tbody.appendChild(tr);
     }
     if(data[0]) show(data[0]); else setPreviewEmpty();
@@ -256,20 +249,38 @@
       `<div>Typ: <b>${it.type}</b></div><div>LVL: <b>${it.lvl}</b></div><div>Cena: <b>${it.price}</b></div><div>Kontakt: <b>${it.contact}</b></div>`;
   }
 
-  /* === Dodawanie === */
+  /* === Dodawanie / Edycja === */
   const overlay=document.getElementById('overlay'), addBtn=document.getElementById('addBtn'), closeBtn=document.getElementById('closeBtn'), saveBtn=document.getElementById('saveBtn'), hint=document.getElementById('formHint');
   const drop=document.getElementById('drop'), dropImg=document.getElementById('dropImg'), dropHint=document.getElementById('dropHint'), imgFile=document.getElementById('imgFile');
   const lvlIn=document.getElementById('lvlIn'), typeIn=document.getElementById('typeIn'), priceIn=document.getElementById('priceIn'), contactIn=document.getElementById('contactIn');
-  let imageBlob=null;
+  const multiChk=document.getElementById('multiChk'), qtyIn=document.getElementById('qtyIn');
+  let imageBlob=null, EDIT_MODE=false, CURRENT=null;
 
-  function openModal(){ if(!OWNER){ profEl.classList.add('open'); return } overlay.classList.add('open'); hint.textContent=''; saveBtn.disabled=false; drop.focus(); }
-  function closeModal(){ overlay.classList.remove('open'); resetForm(); }
-  function resetForm(){ [lvlIn,priceIn,contactIn].forEach(i=>i.value=''); typeIn.value='Legendarny'; imageBlob=null; dropImg.style.display='none'; dropHint.style.display='block'; }
-  addBtn.addEventListener('click',openModal); closeBtn.addEventListener('click',closeModal);
-  overlay.addEventListener('click',e=>{if(e.target===overlay) closeModal()}); document.addEventListener('keydown',e=>{if(overlay.classList.contains('open')&&e.key==='Escape') closeModal()});
+  multiChk.addEventListener('change',()=>{ qtyIn.disabled = !multiChk.checked; if(!multiChk.checked) qtyIn.value=''; });
+
+  function openModal(edit=false, item=null){
+    EDIT_MODE = edit; CURRENT = item;
+    document.getElementById('titleAdd').textContent = edit ? 'Edytuj ofertę' : 'Dodawanie oferty';
+    saveBtn.textContent = edit ? 'Zapisz' : 'Dodaj';
+    overlay.classList.add('open'); hint.textContent=''; saveBtn.disabled=false; drop.focus();
+
+    imageBlob=null; dropImg.style.display='none'; dropHint.style.display='block';
+    lvlIn.value=priceIn.value=contactIn.value=''; typeIn.value='Legendarny'; multiChk.checked=false; qtyIn.disabled=true; qtyIn.value='';
+
+    if(edit && item){
+      lvlIn.value = item.lvl; typeIn.value = item.type; priceIn.value = item.price; contactIn.value = item.contact;
+      if(item.qty && Number(item.qty)>1){ multiChk.checked=true; qtyIn.disabled=false; qtyIn.value=item.qty; }
+      if(item.imgUrl){ dropImg.src = toThumb(item.imgUrl); dropImg.style.display='block'; dropHint.style.display='none'; }
+    }
+  }
+  function closeModal(){ overlay.classList.remove('open'); }
+
+  addBtn.addEventListener('click',()=>openModal(false,null));
+  closeBtn.addEventListener('click',closeModal);
+  overlay.addEventListener('click',e=>{if(e.target===overlay) closeModal()});
+  document.addEventListener('keydown',e=>{if(overlay.classList.contains('open')&&e.key==='Escape') closeModal()});
 
   ;['dragenter','dragover','dragleave','drop'].forEach(ev=> drop.addEventListener(ev, e=>{e.preventDefault();e.stopPropagation()}));
-  ;['dragenter','dragover'].forEach(()=> drop.classList.add('drag')); ['dragleave','drop'].forEach(()=> drop.classList.remove('drag'));
   drop.addEventListener('click',()=>imgFile.click());
   drop.addEventListener('drop',e=> handleFiles(e.dataTransfer.files));
   imgFile.addEventListener('change',()=>handleFiles(imgFile.files));
@@ -288,35 +299,57 @@
   function compressToMax(dataUrl,max,cb){ const img=new Image(); img.onload=()=>{ const s=Math.min(1,max/Math.max(img.width,img.height)); const w=Math.round(img.width*s),h=Math.round(img.height*s); const c=document.createElement('canvas'); c.width=w;c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); c.toBlob(b=>cb(b),'image/png',0.95); }; img.src=dataUrl; }
 
   saveBtn.addEventListener('click', async ()=>{
-    if(!OWNER){ profEl.classList.add('open'); return }
     const lvl=parseInt(lvlIn.value,10), type=typeIn.value, price=(priceIn.value||'').trim(), contact=(contactIn.value||'').trim();
+    const qty = multiChk.checked ? Math.max(2, parseInt(qtyIn.value||'2',10)) : 1;
     if(!lvl||!price||!contact){ hint.textContent='Uzupełnij: lvl, cena, kontakt.'; return }
     saveBtn.disabled=true;
-    const offer = { type, lvl, price, contact, ownerId: OWNER.ownerId };
-    const res = await apiAdd(offer, imageBlob).catch(()=>({ok:false}));
-    saveBtn.disabled=false;
-    if(!res.ok){ hint.textContent = 'Błąd zapisu: ' + (res.error || 'spróbuj ponownie.'); return }
+
+    if(!EDIT_MODE){
+      const offer = { type, lvl, price, qty, contact, ownerId: OWNER?.ownerId||'' };
+      const res = await apiAdd(offer, imageBlob).catch(()=>({ok:false}));
+      saveBtn.disabled=false;
+      if(!res.ok){ hint.textContent = 'Błąd zapisu: ' + (res.error || 'spróbuj ponownie.'); return }
+    } else {
+      // edycja wymaga PIN-u (właściciel lub admin)
+      const pin = await askPin('Podaj PIN właściciela lub hasło admina, aby zapisać zmiany.');
+      if(pin == null){ saveBtn.disabled=false; return }
+      const isOwner = !!(OWNER && CURRENT && OWNER.ownerId===CURRENT.ownerId);
+      const fields = { type, lvl, price, qty, contact };
+      const res = await apiUpdate(CURRENT.id, fields, pin, isOwner, imageBlob).catch(()=>({ok:false}));
+      saveBtn.disabled=false;
+      if(!res.ok){ hint.textContent = 'Błąd edycji: ' + (res.error || 'spróbuj ponownie.'); return }
+    }
     closeModal(); await loadAndRender();
   });
 
-  /* === Usuwanie === */
-  const confirmEl=document.getElementById('confirm'), cYes=document.getElementById('cYes'), cNo=document.getElementById('cNo'), cErr=document.getElementById('cErr'), pinConfirm=document.getElementById('pinConfirm');
-  function askDelete(item){
-    confirmEl.classList.add('open'); cErr.textContent=''; pinConfirm.value=''; pinConfirm.focus();
-    const isOwner = !!(OWNER && item.ownerId && OWNER.ownerId===item.ownerId);
-    const onNo = ()=> cleanup(); const onYes = async ()=>{
-      const pin=(pinConfirm.value||'').trim(); if(!pin){ cErr.textContent='Wpisz PIN.'; return }
-      const res = await apiDelete(item.id, pin, isOwner).catch(()=>({ok:false}));
-      if(!res.ok){ cErr.textContent = res.error || 'Błąd operacji.'; return }
-      cleanup(); await loadAndRender();
-    };
-    function cleanup(){ cNo.removeEventListener('click',onNo); cYes.removeEventListener('click',onYes); confirmEl.classList.remove('open'); }
-    cNo.addEventListener('click',onNo); cYes.addEventListener('click',onYes);
-    document.addEventListener('keydown',function esc(e){ if(e.key==='Escape'){ cleanup(); document.removeEventListener('keydown',esc);} });
+  /* === PIN modal (uniwersalny) === */
+  const confirmEl=document.getElementById('confirm'), cYes=document.getElementById('cYes'), cNo=document.getElementById('cNo'),
+        cErr=document.getElementById('cErr'), pinConfirm=document.getElementById('pinConfirm'), cMsg=document.getElementById('cMsg');
+  function askPin(message){
+    return new Promise(resolve=>{
+      cMsg.textContent = message || 'Podaj PIN.';
+      cErr.textContent=''; pinConfirm.value='';
+      confirmEl.classList.add('open'); pinConfirm.focus();
+      const onNo = ()=>{ cleanup(); resolve(null); };
+      const onYes = ()=>{ const v=(pinConfirm.value||'').trim(); if(!v){ cErr.textContent='Wpisz PIN.'; return } cleanup(); resolve(v); };
+      function cleanup(){ cNo.removeEventListener('click',onNo); cYes.removeEventListener('click',onYes); confirmEl.classList.remove('open'); }
+      cNo.addEventListener('click',onNo); cYes.addEventListener('click',onYes);
+      document.addEventListener('keydown',function esc(e){ if(e.key==='Escape'){ onNo(); document.removeEventListener('keydown',esc);} });
+    });
   }
 
+  async function onDelete(item){
+    const pin = await askPin('Wpisz PIN właściciela lub hasło admina, aby usunąć ofertę.');
+    if(pin==null) return;
+    const isOwner = !!(OWNER && item.ownerId && OWNER.ownerId===item.ownerId);
+    const res = await apiDelete(item.id, pin, isOwner).catch(()=>({ok:false}));
+    if(!res.ok){ alert(res.error || 'Błąd operacji.'); return }
+    await loadAndRender();
+  }
+  function onEdit(item){ openModal(true,item); }
+
   /* start */
-  async function start(){ if(OWNER) await loadAndRender(); else render(); }
+  async function start(){ await loadAndRender(); }
   function setPreviewEmpty(){ previewImg.src=''; document.getElementById('pMeta').innerHTML=`<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`; }
   start();
 </script>
