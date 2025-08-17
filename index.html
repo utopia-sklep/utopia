@@ -349,21 +349,33 @@
     if(data[0]) show(data[0]); else setPreviewEmpty();
   }
   function setPreviewEmpty(){
-    // wyczyść i ukryj podgląd, żeby nie zostawał obraz z poprzedniej kategorii
-    if (previewImg){
-      previewImg.removeAttribute('src');
-      previewImg.style.display = 'none';
-    }
+    try{
+      if (previewImg){
+        // Bez removeAttribute, niektóre przeglądarki potrafiły tu marudzić
+        previewImg.src = '';
+        previewImg.hidden = true;
+      }
+      const meta = document.getElementById('pMeta');
+      if (meta){
+        meta.innerHTML = '<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>';
+      }
+    }catch(err){ console.error('setPreviewEmpty error', err); }
+  }
     const meta = document.getElementById('pMeta');
     if (meta){
       meta.innerHTML = `<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`;
     }
   }
   function show(it){
-    if (previewImg){
-      previewImg.style.display = 'block';
-      setImg(previewImg, it.imgUrl||it.fileId||'');
-    }
+    try{
+      if (previewImg){
+        previewImg.hidden = false;
+        setImg(previewImg, it.imgUrl||it.fileId||'');
+      }
+      document.getElementById('pMeta').innerHTML =
+        `<div>Typ: <b>${it.type||'—'}</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`;
+    }catch(err){ console.error('show error', err); }
+  }
     document.getElementById('pMeta').innerHTML =
       `<div>Typ: <b>${it.type||'—'}</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`;
   }</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`;
@@ -518,13 +530,22 @@
 
   /* start */
   function syncTabs(){ tabs.forEach(t=> t.setAttribute('aria-selected', String(t.dataset.type===state.type))); viewTabs.forEach(t=> t.setAttribute('aria-selected', String(t.dataset.view===state.view))); }
-  async function start(){ syncTabs(); await loadAndRender(); refreshAdminUI(); }
+  function syncTabs(){ tabs.forEach(t=> t.setAttribute('aria-selected', String(t.dataset.type===state.type))); viewTabs.forEach(t=> t.setAttribute('aria-selected', String(t.dataset.view===state.view))); }
+  async function start(){ try{ syncTabs(); await loadAndRender(); refreshAdminUI(); } catch(e){ console.error('start error', e); } }
+  window.addEventListener('error', e=>{ console.error('Global error:', e.message, e.error); });
   function setPreviewEmpty(){
-    // wyczyść i ukryj podgląd, żeby nie zostawał obraz z poprzedniej kategorii
-    if (previewImg){
-      previewImg.removeAttribute('src');
-      previewImg.style.display = 'none';
-    }
+    try{
+      if (previewImg){
+        // Bez removeAttribute, niektóre przeglądarki potrafiły tu marudzić
+        previewImg.src = '';
+        previewImg.hidden = true;
+      }
+      const meta = document.getElementById('pMeta');
+      if (meta){
+        meta.innerHTML = '<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>';
+      }
+    }catch(err){ console.error('setPreviewEmpty error', err); }
+  }
     const meta = document.getElementById('pMeta');
     if (meta){
       meta.innerHTML = `<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`;
