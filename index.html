@@ -35,7 +35,7 @@
   th,td{padding:12px;border-bottom:1px solid rgba(227,179,65,.18);text-align:left;font-size:14px}
   th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
   tr:hover td{background:#121722}
-  .thumb{width:52px;height:52px;border-radius:6px;border:1px solid rgba(227,179,65,.35);background:#0b0e12;object-fit:cover}
+  .thumb{width:52px;height:52px;border-radius:6px;border:1px solid rgba(227,179,65,.35);background:#0b0e12;object-fit:none;object-position:var(--thumb-crop-x, -10px) var(--thumb-crop-y, -10px);image-rendering:auto;overflow:hidden}
   .badge{display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid rgba(227,179,65,.5);font-size:12px}
   .empty{padding:24px;text-align:center;color:var(--muted)}
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px}
