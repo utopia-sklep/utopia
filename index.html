@@ -217,20 +217,20 @@
   async function apiAdd(offer, blob){
     const imgData = blob ? await blobToDataURL(blob) : '';
     const body = JSON.stringify({ action:'add', ...offer, imgData });
-    const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'text/plain; charset=utf-8' }, body });
+    const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'application/json' }, body });
     const text = await r.text(); try { return JSON.parse(text); } catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}`}; }
   }
   async function apiDelete(id){
     const body = JSON.stringify({ action:'delete', id,
       ownerIdTry: OWNER?.ownerId || '', adminToken: ADMIN_TOKEN || '' });
-    const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'text/plain; charset=utf-8' }, body });
+    const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'application/json' }, body });
     const text = await r.text(); try { return JSON.parse(text); } catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}`}; }
   }
   async function apiUpdate(id, fields, blob){
     const imgData = blob ? await blobToDataURL(blob) : '';
     const body = JSON.stringify({ action:'update', id, ...fields,
       imgData, ownerIdTry: OWNER?.ownerId || '', adminToken: ADMIN_TOKEN || '' });
-    const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'text/plain; charset=utf-8' }, body });
+    const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'application/json' }, body });
     const text = await r.text(); try { return JSON.parse(text); } catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}`}; }
   }
   function blobToDataURL(blob){ return new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(blob); }); }
@@ -317,7 +317,7 @@
   function openModal(edit=false, item=null){
     EDIT_MODE = edit; CURRENT = item;
     document.getElementById('titleAdd').textContent = edit ? 'Edytuj ofertę' : 'Dodawanie oferty';
-    saveBtn.textContent = edit ? 'Zapisz' : 'Dodaj';
+    saveBtn.textContent = edit ? 'Zapisz' : 'Zapisz';
     overlay.classList.add('open'); hint.textContent=''; saveBtn.disabled=false; drop.focus();
 
     imageBlob=null; dropImg.style.display='none'; dropHint.style.display='block';
