@@ -93,7 +93,7 @@
 
   <section class="grid">
     <aside class="card">
-      <img class="item-img" id="pImg" referrerpolicy="no-referrer" alt="" src="">
+      <img class="item-img" id="pImg" referrerpolicy="no-referrer" alt="Podgląd" src="">
       <div class="meta" id="pMeta">
         <div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>
       </div>
@@ -120,7 +120,7 @@
         <div>
           <div id="drop" class="drop" tabindex="0">
             <div id="dropHint"><strong>Dodaj zdjęcie</strong><br>Przeciągnij plik, <u>wklej (Ctrl+V)</u> lub kliknij (PNG/JPG)</div>
-            <img id="dropImg" alt="" style="display:none">
+            <img id="dropImg" alt="Załadowany obraz" style="display:none">
             <input id="imgFile" type="file" accept="image/*" hidden>
           </div>
         </div>
@@ -188,9 +188,11 @@
 
   /* === profil (nick + PIN -> ownerId) === */
   const OWNER_KEY='utopia_owner_v1';
-  const ADMIN_KEY='utopia_admin_token_v1';
+  const ADMIN_KEY='utopia_admin_token_v1';           // (b64)
+  const ADMIN_KEY_HEX='utopia_admin_token_hex_v1';   // (hex) — nowy klucz
   let OWNER = loadOwner();
-  let ADMIN_TOKEN = localStorage.getItem(ADMIN_KEY) || '';
+  let ADMIN_TOKEN = localStorage.getItem(ADMIN_KEY) || '';            // b64 (dla zgodności wstecz)
+  let ADMIN_TOKEN_HEX = localStorage.getItem(ADMIN_KEY_HEX) || '';    // hex (nowa ścieżka)
 
   function loadOwner(){ try{return JSON.parse(localStorage.getItem(OWNER_KEY)||'null')}catch(e){return null} }
   async function deriveOwnerId(nick, pin){
@@ -211,9 +213,14 @@
     const hash = await crypto.subtle.digest('SHA-256', enc.encode(str));
     return btoa(String.fromCharCode(...new Uint8Array(hash)));
   }
+  async function sha256hex(str){
+    const enc = new TextEncoder();
+    const hash = await crypto.subtle.digest('SHA-256', enc.encode(str));
+    return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
 
   /* === API === */
-  async function apiList(){ const r = await fetch(API_URL+'?action=list'); return r.json(); }
+  async function apiList(){ const r = await fetch(API_URL+'?action=list', {cache:'no-store'}); return r.json(); }
   async function apiAdd(offer, blob){
     const imgData = blob ? await blobToDataURL(blob) : '';
     const body = JSON.stringify({ action:'add', ...offer, imgData });
@@ -222,18 +229,57 @@
   }
   async function apiDelete(id){
     const body = JSON.stringify({ action:'delete', id,
-      ownerIdTry: OWNER?.ownerId || '', adminToken: ADMIN_TOKEN || '' });
+      ownerIdTry: OWNER?.ownerId || '',
+      adminToken: ADMIN_TOKEN || '',        // zgodność (b64)
+      adminTokenHex: ADMIN_TOKEN_HEX || ''  // nowy (hex)
+    });
     const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'application/json' }, body });
     const text = await r.text(); try { return JSON.parse(text); } catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}`}; }
   }
   async function apiUpdate(id, fields, blob){
     const imgData = blob ? await blobToDataURL(blob) : '';
     const body = JSON.stringify({ action:'update', id, ...fields,
-      imgData, ownerIdTry: OWNER?.ownerId || '', adminToken: ADMIN_TOKEN || '' });
+      imgData,
+      ownerIdTry: OWNER?.ownerId || '',
+      adminToken: ADMIN_TOKEN || '',        // zgodność (b64)
+      adminTokenHex: ADMIN_TOKEN_HEX || ''  // nowy (hex)
+    });
     const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'application/json' }, body });
     const text = await r.text(); try { return JSON.parse(text); } catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}`}; }
   }
   function blobToDataURL(blob){ return new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(blob); }); }
+
+  /* === Pomocnicze: miniatury i obrazki === */
+  function toThumb(url){
+    if(!url) return '';
+    // Jeśli pełny thumbnail już jest
+    if(url.includes('drive.google.com/thumbnail?id=')) return url;
+    // Link typu /file/d/<ID>/view
+    let m = url.match(/\/file\/d\/([^/]+)/);
+    if(m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600`;
+    // Link z parametrem id=...
+    m = url.match(/[?&]id=([^&]+)/);
+    if(m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600`;
+    // Samo ID pliku (bez protokołu)
+    if(/^[a-zA-Z0-9_-]{20,}$/.test(url)) return `https://drive.google.com/thumbnail?id=${url}&sz=w1600`;
+    // Inne hosty (googleusercontent, własne CDN) — zostaw jak jest
+    return url;
+  }
+  function setImg(el, rawUrl){
+    const primary = toThumb(rawUrl);
+    el.referrerPolicy = 'no-referrer';
+    el.src = primary;
+    el.onerror = ()=>{
+      // Fallback 1: spróbuj bez miniatury
+      if(/^https?:\/\//i.test(rawUrl)){
+        el.onerror=null; el.src = rawUrl; return;
+      }
+      // Fallback 2: bezpośrednie uc?export=view&id=...
+      if(/^[a-zA-Z0-9_-]{20,}$/.test(rawUrl)){
+        el.onerror=null; el.src = `https://drive.google.com/uc?export=view&id=${rawUrl}`; return;
+      }
+    };
+  }
 
   /* === UI / lista === */
   let REMOTE=[];
@@ -259,9 +305,11 @@
     }
     return true;
   }
-  function toThumb(url){ if(!url) return ''; if(url.includes('thumbnail?id=')) return url; const m=url.match(/[?&]id=([^&]+)/); return m?`https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600`:url; }
 
-  async function loadAndRender(){ REMOTE = await apiList(); render(); }
+  async function loadAndRender(){
+    REMOTE = await apiList();
+    render();
+  }
 
   function render(){
     const data = REMOTE.filter(byFilters).sort((a,b)=>a.lvl-b.lvl || a.type.localeCompare(b.type));
@@ -269,24 +317,29 @@
     for(const it of data){
       const qtyTxt = (it.qty && Number(it.qty)>1) ? it.qty : '';
       const isOwner = !!(OWNER && it.ownerId && OWNER.ownerId===it.ownerId);
-      const canAdmin = !!ADMIN_TOKEN;
+      const canAdmin = !!(ADMIN_TOKEN || ADMIN_TOKEN_HEX);
       const showActions = isOwner || canAdmin;
 
       const tr=document.createElement('tr');
       tr.innerHTML = `
         <td><span class="badge">${it.lvl}</span></td>
         <td><div style="display:flex;align-items:center;gap:10px">
-              <img class="thumb" referrerpolicy="no-referrer" alt="miniatura" src="${toThumb(it.imgUrl)}">
-              <div style="font-size:12px;color:#aeb6c7">${it.type}</div>
+              <img class="thumb" referrerpolicy="no-referrer" alt="miniatura">
+              <div style="font-size:12px;color:#aeb6c7">${it.type||''}</div>
             </div></td>
         <td>${qtyTxt}</td>
-        <td>${it.price}</td>
-        <td><a href="#" title="Kopiuj kontakt">${it.contact}</a></td>
+        <td>${it.price||''}</td>
+        <td><a href="#" title="Kopiuj kontakt">${it.contact||''}</a></td>
         <td class="actions">${showActions?`
           <button class="iconbtn edit" title="Edytuj">✎</button>
           <button class="iconbtn del"  title="Usuń">✕</button>`:''}
         </td>`;
-      tr.querySelector('a').addEventListener('click',e=>{e.preventDefault();navigator.clipboard.writeText(it.contact);});
+
+      // Ustawienie obrazka z fallbackami
+      const imgEl = tr.querySelector('.thumb');
+      setImg(imgEl, it.imgUrl||it.fileId||'');
+
+      tr.querySelector('a').addEventListener('click',e=>{e.preventDefault(); if(it.contact) navigator.clipboard.writeText(it.contact);});
       tr.addEventListener('click',e=>{ if(e.target.closest('.iconbtn')) return; show(it); });
       if(showActions){
         tr.querySelector('.del').addEventListener('click',()=> onDelete(it));
@@ -300,9 +353,9 @@
     previewImg.src=''; document.getElementById('pMeta').innerHTML=`<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`;
   }
   function show(it){
-    previewImg.src = toThumb(it.imgUrl||'');
+    setImg(previewImg, it.imgUrl||it.fileId||'');
     document.getElementById('pMeta').innerHTML =
-      `<div>Typ: <b>${it.type}</b></div><div>LVL: <b>${it.lvl}</b></div><div>Cena: <b>${it.price}</b></div><div>Kontakt: <b>${it.contact}</b></div>`;
+      `<div>Typ: <b>${it.type||'—'}</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`;
   }
 
   /* === Dodawanie / Edycja === */
@@ -317,7 +370,7 @@
   function openModal(edit=false, item=null){
     EDIT_MODE = edit; CURRENT = item;
     document.getElementById('titleAdd').textContent = edit ? 'Edytuj ofertę' : 'Dodawanie oferty';
-    saveBtn.textContent = edit ? 'Zapisz' : 'Zapisz';
+    saveBtn.textContent = 'Zapisz';
     overlay.classList.add('open'); hint.textContent=''; saveBtn.disabled=false; drop.focus();
 
     imageBlob=null; dropImg.style.display='none'; dropHint.style.display='block';
@@ -326,7 +379,7 @@
     if(edit && item){
       lvlIn.value = item.lvl; typeIn.value = item.type; priceIn.value = item.price; contactIn.value = item.contact;
       if(item.qty && Number(item.qty)>1){ multiChk.checked=true; qtyIn.disabled=false; qtyIn.value=item.qty; }
-      if(item.imgUrl){ dropImg.src = toThumb(item.imgUrl); dropImg.style.display='block'; dropHint.style.display='none'; }
+      if(item.imgUrl||item.fileId){ setImg(dropImg, item.imgUrl||item.fileId); dropImg.style.display='block'; dropHint.style.display='none'; }
     }
   }
   function closeModal(){ overlay.classList.remove('open'); }
@@ -408,7 +461,7 @@
   const adminLogoutBtn=document.getElementById('adminLogout');
 
   function refreshAdminUI(){
-    if(ADMIN_TOKEN){
+    if(ADMIN_TOKEN || ADMIN_TOKEN_HEX){
       adminStatus.innerHTML = '<b>Admin:</b> zalogowany';
       adminLoginArea.style.display='none';
       adminLogoutArea.style.display='block';
@@ -421,12 +474,17 @@
   }
   adminLoginBtn.addEventListener('click', async ()=>{
     const pw=(adminPass.value||'').trim(); if(!pw) return;
-    ADMIN_TOKEN = await sha256b64(pw);  // weryfikacja po stronie backendu
+    // Wylicz obie wersje tokenu dla kompatybilności z backendem
+    ADMIN_TOKEN = await sha256b64(pw);
+    ADMIN_TOKEN_HEX = await sha256hex(pw);
     localStorage.setItem(ADMIN_KEY, ADMIN_TOKEN);
+    localStorage.setItem(ADMIN_KEY_HEX, ADMIN_TOKEN_HEX);
     adminPass.value=''; refreshAdminUI();
   });
   adminLogoutBtn.addEventListener('click', ()=>{
-    ADMIN_TOKEN=''; localStorage.removeItem(ADMIN_KEY); refreshAdminUI();
+    ADMIN_TOKEN=''; ADMIN_TOKEN_HEX='';
+    localStorage.removeItem(ADMIN_KEY); localStorage.removeItem(ADMIN_KEY_HEX);
+    refreshAdminUI();
   });
 
   /* start */
