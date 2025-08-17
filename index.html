@@ -69,11 +69,11 @@
   <section class="toolbar">
     <div class="tabsRow">
       <div class="tabs">
-        <button class="tab" data-type="Legendarny">Legendarny</button>
+        <button class="tab" data-type="Legendarny" aria-selected="true">Legendarny</button>
         <button class="tab" data-type="Heroiczny">Heroiczny</button>
         <button class="tab" data-type="Unikatowy">Unikatowy</button>
         <button class="tab" data-type="Inny">Inny</button>
-        <button class="tab" data-type="Wszystkie" aria-selected="true">Wszystkie</button>
+        <button class="tab" data-type="Wszystkie">Wszystkie</button>
       </div>
       <div class="tabs" id="viewTabs">
         <button class="tab" data-view="all"   aria-selected="true">Wszystkie oferty</button>
@@ -349,12 +349,13 @@
     if(data[0]) show(data[0]); else setPreviewEmpty();
   }
   function setPreviewEmpty(){
-    try{
-      if (previewImg){
-        // Bez removeAttribute, niektóre przeglądarki potrafiły tu marudzić
-        previewImg.src = '';
-        previewImg.hidden = true;
-      }
+  // wersja stabilna (przed ukrywaniem obrazka)
+  if (previewImg) previewImg.src = '';
+  const meta = document.getElementById('pMeta');
+  if (meta){
+    meta.innerHTML = `<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`;
+  }
+}
       const meta = document.getElementById('pMeta');
       if (meta){
         meta.innerHTML = '<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>';
@@ -367,11 +368,12 @@
     }
   }
   function show(it){
-    try{
-      if (previewImg){
-        previewImg.hidden = false;
-        setImg(previewImg, it.imgUrl||it.fileId||'');
-      }
+  if (previewImg){
+    setImg(previewImg, it.imgUrl||it.fileId||'');
+  }
+  document.getElementById('pMeta').innerHTML =
+    `<div>Typ: <b>${it.type||'—'}</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`;
+}
       document.getElementById('pMeta').innerHTML =
         `<div>Typ: <b>${it.type||'—'}</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`;
     }catch(err){ console.error('show error', err); }
@@ -531,15 +533,16 @@
   /* start */
   function syncTabs(){ tabs.forEach(t=> t.setAttribute('aria-selected', String(t.dataset.type===state.type))); viewTabs.forEach(t=> t.setAttribute('aria-selected', String(t.dataset.view===state.view))); }
   function syncTabs(){ tabs.forEach(t=> t.setAttribute('aria-selected', String(t.dataset.type===state.type))); viewTabs.forEach(t=> t.setAttribute('aria-selected', String(t.dataset.view===state.view))); }
-  async function start(){ try{ syncTabs(); await loadAndRender(); refreshAdminUI(); } catch(e){ console.error('start error', e); } }
+  async function start(){ await loadAndRender(); refreshAdminUI(); }
   window.addEventListener('error', e=>{ console.error('Global error:', e.message, e.error); });
   function setPreviewEmpty(){
-    try{
-      if (previewImg){
-        // Bez removeAttribute, niektóre przeglądarki potrafiły tu marudzić
-        previewImg.src = '';
-        previewImg.hidden = true;
-      }
+  // wersja stabilna (przed ukrywaniem obrazka)
+  if (previewImg) previewImg.src = '';
+  const meta = document.getElementById('pMeta');
+  if (meta){
+    meta.innerHTML = `<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`;
+  }
+}
       const meta = document.getElementById('pMeta');
       if (meta){
         meta.innerHTML = '<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>';
