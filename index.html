@@ -6,11 +6,14 @@
 <title>Utopia sprzedaje</title>
 <style>
   :root{--bg:#0d0f13;--panel:#12151b;--text:#e7eaf0;--muted:#aeb6c7;--accent:#e3b341;--card:#0f1319;--border:1.5px solid var(--accent);--radius:10px;--shadow:0 8px 20px rgba(0,0,0,.35)}
-  *{box-sizing:border-box} html,body{margin:0;background:linear-gradient(180deg,#0b0d11,#0c1016 60%,#0a0c10);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif}
-  a{color:var(--accent)} .wrap{max-width:1200px;margin:24px auto;padding:16px}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:linear-gradient(180deg,#0b0d11,#0c1016 60%,#0a0c10);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif}
+  a{color:var(--accent)}
+  .wrap{max-width:1200px;margin:24px auto;padding:16px}
   header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
   .gem{width:28px;height:28px;border:var(--border);border-radius:8px;background:radial-gradient(circle at 30% 30%,#ffd789,#8a6a18);box-shadow:inset 0 0 12px rgba(255,215,137,.6)}
   h1{font-size:20px;margin:0}
+
   .toolbar{background:#12151b;border:var(--border);border-radius:var(--radius);padding:10px;box-shadow:var(--shadow)}
   .tabs{display:flex;gap:8px;flex-wrap:wrap}
   .tab{padding:10px 14px;border:var(--border);border-radius:10px;background:linear-gradient(180deg,#212632,#1a1f28);cursor:pointer;font-weight:700;color:#f7f8fc}
@@ -20,11 +23,13 @@
   .input,.btn{height:40px;border-radius:8px;border:var(--border);background:#0f141b;color:var(--text);padding:0 12px}
   .btn{cursor:pointer;font-weight:700}
   .btn.primary{background:linear-gradient(180deg,#2a2f3a,#1a1f27)}
+
   .grid{display:grid;grid-template-columns:360px 1fr;gap:16px;margin-top:16px}
   @media (max-width:980px){.grid{grid-template-columns:1fr}}
   .card{background:var(--card);border:var(--border);border-radius:var(--radius);padding:12px;box-shadow:var(--shadow)}
   .item-img{width:100%;height:auto;border-radius:8px;border:1px solid rgba(227,179,65,.35);background:#0b0e12}
   .meta{margin-top:10px;font-size:14px;line-height:1.6}
+
   .table{background:#12151b;border:var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
   table{width:100%;border-collapse:collapse}
   thead{background:linear-gradient(180deg,#1b212b,#141922)}
@@ -34,8 +39,7 @@
   .thumb{width:52px;height:52px;border-radius:6px;border:1px solid rgba(227,179,65,.35);background:#0b0e12;object-fit:cover}
   .badge{display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid rgba(227,179,65,.5);font-size:12px}
   .empty{padding:24px;text-align:center;color:var(--muted)}
-  .xbtn{width:34px;height:34px;border-radius:8px;border:1px solid rgba(232,93,107,.55);background:transparent;color:#ffd7d7;cursor:pointer}
-  .xbtn:hover{background:rgba(232,93,107,.15)}
+
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px}
   .overlay.open{display:flex}
   .modal{width:min(1040px,95vw);background:#12151b;border:var(--border);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.6);overflow:hidden;max-height:85vh}
@@ -51,6 +55,7 @@
   .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
   .cols .input{height:44px;width:100%}
   .hint{font-size:12px;color:var(--muted);margin-top:8px}
+
   .confirm{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);padding:16px}
   .confirm.open{display:flex}
   .confirm .box{background:#12151b;border:var(--border);border-radius:12px;min-width:320px;max-width:95vw;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
@@ -82,7 +87,13 @@
   </section>
 
   <section class="grid">
-    <aside class="card"><img class="item-img" id="pImg" alt="" src=""><div class="meta" id="pMeta"><div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div></div></aside>
+    <aside class="card">
+      <img class="item-img" id="pImg" alt="" src="">
+      <div class="meta" id="pMeta">
+        <div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>
+      </div>
+    </aside>
+
     <section class="table">
       <table>
         <thead><tr><th>lvl</th><th>przedmiot</th><th>cena</th><th>kontakt dc.</th><th></th></tr></thead>
@@ -93,7 +104,7 @@
   </section>
 </div>
 
-<!-- MODAL DODAWANIA -->
+<!-- MODAL: dodawanie -->
 <div id="overlay" class="overlay">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="titleAdd">
     <header><h2 id="titleAdd">Dodawanie oferty</h2><button class="closeBtn" id="closeBtn">Zamknij ✕</button></header>
@@ -124,7 +135,7 @@
   </div>
 </div>
 
-<!-- MODAL POTWIERDZENIA USUNIĘCIA -->
+<!-- MODAL: usuwanie (PIN) -->
 <div id="confirm" class="confirm" role="dialog" aria-modal="true" aria-labelledby="cTitle">
   <div class="box">
     <div id="cTitle" style="font-weight:700;margin-bottom:6px">Potwierdzenie</div>
@@ -138,7 +149,7 @@
   </div>
 </div>
 
-<!-- MODAL PROFILU -->
+<!-- MODAL: profil (nick + PIN) -->
 <div id="profile" class="confirm" role="dialog" aria-modal="true" aria-labelledby="pTitle">
   <div class="box">
     <div id="pTitle" style="font-weight:700;margin-bottom:6px">Ustaw swój profil</div>
@@ -150,10 +161,10 @@
 </div>
 
 <script>
-  /* ======= USTAW SWÓJ API_URL Z APPS SCRIPT (kończy się na /exec) ======= */
-  const API_URL = 'WSTAW_TUTAJ_SWÓJ_URL_WEB_APP'; // <— PODMIEŃ
+  /* === ADRES API (Twój Web App) === */
+  const API_URL = 'https://script.google.com/macros/s/AKfycbyIOOGP_KB1OJdzj5JjBhFAneMwtXFPsuJVQScUqfbpf4oPc0XySkmXjWfzN5N9-k7z9A/exec';
 
-  /* ======= profil (nick + PIN -> ownerId) ======= */
+  /* === profil (nick + PIN -> ownerId) === */
   const OWNER_KEY='utopia_owner_v1';
   let OWNER = loadOwner();
   function loadOwner(){ try{return JSON.parse(localStorage.getItem(OWNER_KEY)||'null')}catch(e){return null} }
@@ -177,21 +188,39 @@
     await saveOwner(n,p); profEl.classList.remove('open'); loadAndRender();
   });
 
-  /* ======= API ======= */
+  /* === API === */
   async function apiList(){ const r = await fetch(API_URL+'?action=list'); return r.json(); }
+
+  // POST jako text/plain — mniejszy kłopot z CORS w Apps Script
   async function apiAdd(offer, blob){
     const imgData = blob ? await blobToDataURL(blob) : '';
-    const r = await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'add',...offer,imgData})});
-    return r.json();
+    const body = JSON.stringify({ action:'add', ...offer, imgData });
+    const r = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      body
+    });
+    const text = await r.text();
+    try { return JSON.parse(text); }
+    catch { return { ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}` }; }
   }
+
   async function apiDelete(id, typedPin, isOwner){
     const ownerIdTry = (isOwner && OWNER) ? await deriveOwnerId(OWNER.nick, typedPin) : '';
-    const r = await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',id, pin:typedPin, ownerIdTry})});
-    return r.json();
+    const body = JSON.stringify({ action:'delete', id, pin:typedPin, ownerIdTry });
+    const r = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      body
+    });
+    const text = await r.text();
+    try { return JSON.parse(text); }
+    catch { return { ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}` }; }
   }
+
   function blobToDataURL(blob){ return new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(blob); }); }
 
-  /* ======= UI / lista ======= */
+  /* === UI / lista === */
   let REMOTE=[];
   const tabs=document.querySelectorAll('.tab');
   const minEl=document.getElementById('minLvl'), maxEl=document.getElementById('maxLvl'), tbody=document.getElementById('tbody'), empty=document.getElementById('empty'), previewImg=document.getElementById('pImg');
@@ -230,7 +259,7 @@
       `<div>Typ: <b>${it.type}</b></div><div>LVL: <b>${it.lvl}</b></div><div>Cena: <b>${it.price}</b></div><div>Kontakt: <b>${it.contact}</b></div>`;
   }
 
-  /* ======= Dodawanie ======= */
+  /* === Dodawanie === */
   const overlay=document.getElementById('overlay'), addBtn=document.getElementById('addBtn'), closeBtn=document.getElementById('closeBtn'), saveBtn=document.getElementById('saveBtn'), hint=document.getElementById('formHint');
   const drop=document.getElementById('drop'), dropImg=document.getElementById('dropImg'), dropHint=document.getElementById('dropHint'), imgFile=document.getElementById('imgFile');
   const lvlIn=document.getElementById('lvlIn'), typeIn=document.getElementById('typeIn'), priceIn=document.getElementById('priceIn'), contactIn=document.getElementById('contactIn');
@@ -269,11 +298,11 @@
     const offer = { type, lvl, price, contact, ownerId: OWNER.ownerId };
     const res = await apiAdd(offer, imageBlob).catch(()=>({ok:false}));
     saveBtn.disabled=false;
-    if(!res.ok){ hint.textContent='Błąd zapisu. Spróbuj ponownie.'; return }
+    if(!res.ok){ hint.textContent = 'Błąd zapisu: ' + (res.error || 'spróbuj ponownie.'); return }
     closeModal(); await loadAndRender();
   });
 
-  /* ======= Usuwanie (PIN; admin na serwerze) ======= */
+  /* === Usuwanie (PIN; admin sprawdzany na serwerze) === */
   const confirmEl=document.getElementById('confirm'), cYes=document.getElementById('cYes'), cNo=document.getElementById('cNo'), cErr=document.getElementById('cErr'), pinConfirm=document.getElementById('pinConfirm');
   function askDelete(item){
     confirmEl.classList.add('open'); cErr.textContent=''; pinConfirm.value=''; pinConfirm.focus();
@@ -281,7 +310,7 @@
     const onNo = ()=> cleanup(); const onYes = async ()=>{
       const pin=(pinConfirm.value||'').trim(); if(!pin){ cErr.textContent='Wpisz PIN.'; return }
       const res = await apiDelete(item.id, pin, isOwner).catch(()=>({ok:false}));
-      if(!res.ok){ cErr.textContent = (res.error==='forbidden')?'Błędny PIN.':'Błąd operacji.'; return }
+      if(!res.ok){ cErr.textContent = res.error || 'Błąd operacji.'; return }
       cleanup(); await loadAndRender();
     };
     function cleanup(){ cNo.removeEventListener('click',onNo); cYes.removeEventListener('click',onYes); confirmEl.classList.remove('open'); }
@@ -289,7 +318,7 @@
     document.addEventListener('keydown',function esc(e){ if(e.key==='Escape'){ cleanup(); document.removeEventListener('keydown',esc);} });
   }
 
-  /* ======= start ======= */
+  /* start */
   async function start(){ if(OWNER) await loadAndRender(); else render(); }
   start();
 </script>
