@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Utopia sprzedaje</title>
+<style>
+  :root{
+    --bg:#0d0f13; --panel:#12151b; --panel-2:#161a21; --text:#e7eaf0;
+    --muted:#aeb6c7; --accent:#e3b341; --card:#0f1319; --danger:#e85d6b;
+    --border:1.5px solid var(--accent); --radius:10px; --shadow:0 8px 20px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:linear-gradient(180deg,#0b0d11,#0c1016 60%,#0a0c10);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif}
+  a{color:var(--accent)}
+  .wrap{max-width:1200px;margin:24px auto;padding:16px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .gem{width:28px;height:28px;border:var(--border);border-radius:8px;background:radial-gradient(circle at 30% 30%, #ffd789, #8a6a18);box-shadow:inset 0 0 12px rgba(255,215,137,.6)}
+  h1{font-size:20px;margin:0}
+
+  .toolbar{background:var(--panel);border:var(--border);border-radius:var(--radius);padding:10px;box-shadow:var(--shadow)}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap}
+  .tab{
+    padding:10px 14px;border:var(--border);border-radius:10px;background:linear-gradient(180deg,#212632,#1a1f28);
+    cursor:pointer;font-weight:700;letter-spacing:.2px;color:#f7f8fc;text-shadow:0 1px 0 rgba(0,0,0,.45)
+  }
+  .tab[aria-selected="true"]{
+    background:linear-gradient(180deg,#2a313f,#1f2430);
+    box-shadow:inset 0 0 0 2px rgba(227,179,65,.33), 0 0 0 2px rgba(0,0,0,.25);
+    color:#fff;
+  }
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:flex-end}
+  .label{font-size:12px;color:var(--muted)}
+  .input,.btn{height:40px;border-radius:8px;border:var(--border);background:#0f141b;color:var(--text);padding:0 12px}
+  .btn{cursor:pointer;font-weight:700}
+  .btn.primary{background:linear-gradient(180deg,#2a2f3a,#1a1f27)}
+
+  .grid{display:grid;grid-template-columns:360px 1fr;gap:16px;margin-top:16px}
+  @media (max-width:980px){.grid{grid-template-columns:1fr}}
+
+  .card{background:var(--card);border:var(--border);border-radius:var(--radius);padding:12px;box-shadow:var(--shadow)}
+  .item-img{width:100%;height:auto;border-radius:8px;border:1px solid rgba(227,179,65,.35);background:#0b0e12}
+  .meta{margin-top:10px;font-size:14px;line-height:1.6}
+
+  .table{background:var(--panel);border:var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+  table{width:100%;border-collapse:collapse}
+  thead{background:linear-gradient(180deg,#1b212b,#141922)}
+  th,td{padding:12px;border-bottom:1px solid rgba(227,179,65,.18);text-align:left;font-size:14px}
+  th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+  tr:hover td{background:#121722}
+  .thumb{width:52px;height:52px;border-radius:6px;border:1px solid rgba(227,179,65,.35);background:#0b0e12;object-fit:cover}
+  .badge{display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid rgba(227,179,65,.5);font-size:12px}
+  .empty{padding:24px;text-align:center;color:var(--muted)}
+  footer{opacity:.7;margin-top:18px;font-size:12px;color:var(--muted);text-align:center}
+
+  .xbtn{width:34px;height:34px;border-radius:8px;border:1px solid rgba(232,93,107,.55);background:transparent;color:#ffd7d7;cursor:pointer}
+  .xbtn:hover{background:rgba(232,93,107,.15)}
+
+  /* MODAL: dodawanie */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:16px}
+  .overlay.open{display:flex;}
+  .modal{width:min(1040px,95vw);background:var(--panel);border:var(--border);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.6);overflow:hidden;max-height:85vh;}
+  .modal header{padding:14px 16px;margin:0;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(180deg,#1b212b,#141922)}
+  .modal h2{font-size:16px;margin:0}
+  .modal .content{padding:16px;overflow:auto;max-height:60vh;}
+  .closeBtn{border:var(--border);background:transparent;color:var(--text);border-radius:8px;height:34px;padding:0 10px;cursor:pointer}
+  .form-grid{display:grid;grid-template-columns:460px 1fr;gap:16px}
+  @media (max-width:980px){.form-grid{grid-template-columns:1fr}}
+  .drop{border:2px dashed rgba(227,179,65,.6);border-radius:12px;height:300px;display:flex;align-items:center;justify-content:center;background:#0f1419;cursor:pointer;text-align:center;padding:12px}
+  .drop.drag{background:#131a22}
+  .drop img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px}
+  .cols{display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px}
+  .cols .input{height:44px;width:100%}
+  .modal footer{display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;background:#121722;border-top:1px solid rgba(227,179,65,.2)}
+  .hint{font-size:12px;color:var(--muted);margin-top:8px}
+
+  /* MODALE: potwierdzenie + profil */
+  .confirm{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);padding:16px}
+  .confirm.open{display:flex}
+  .confirm .box{background:var(--panel);border:var(--border);border-radius:12px;min-width:320px;max-width:95vw;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  .confirm .row{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+  .field{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .small{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="gem" aria-hidden="true"></span><h1>Utopia sprzedaje</h1>
+  </header>
+
+  <section class="toolbar">
+    <div class="tabs" role="tablist">
+      <button class="tab" data-type="Legendarny" aria-selected="true">Legendarny</button>
+      <button class="tab" data-type="Heroiczny">Heroiczny</button>
+      <button class="tab" data-type="Unikatowy">Unikatowy</button>
+      <button class="tab" data-type="Inny">Inny</button>
+      <button class="tab" data-type="Wszystkie">Wszystkie</button>
+    </div>
+    <div class="filters">
+      <div><div class="label">min. lvl</div><input id="minLvl" class="input" type="number" placeholder="np. 50"/></div>
+      <div><div class="label">max. lvl</div><input id="maxLvl" class="input" type="number" placeholder="np. 120"/></div>
+      <button id="searchBtn" class="btn primary">szukaj</button>
+      <button id="resetBtn" class="btn">reset</button>
+      <div style="flex:1"></div>
+      <button id="addBtn" class="btn primary">+ Dodaj ofertę</button>
+    </div>
+  </section>
+
+  <section class="grid">
+    <aside class="card" aria-live="polite">
+      <img class="item-img" id="pImg" alt="podgląd przedmiotu" src=""/>
+      <div class="meta" id="pMeta">
+        <div>Typ: <b>—</b></div>
+        <div>LVL: <b>—</b></div>
+        <div>Cena: <b>—</b></div>
+        <div>Kontakt: <b>—</b></div>
+      </div>
+    </aside>
+
+    <section class="table">
+      <table>
+        <thead><tr><th>lvl</th><th>przedmiot</th><th>cena</th><th>kontakt dc.</th><th></th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div id="empty" class="empty">Brak ofert — dodaj pierwszą! 🙂</div>
+    </section>
+  </section>
+
+  <footer>Zdjęcia: IndexedDB (max 800 px). Oferty: localStorage. Działa offline.</footer>
+</div>
+
+<!-- MODAL DODAWANIA -->
+<div id="overlay" class="overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="addTitle">
+    <header>
+      <h2 id="addTitle">Dodawanie oferty</h2>
+      <button type="button" class="closeBtn" id="closeBtn">Zamknij ✕</button>
+    </header>
+    <div class="content">
+      <div class="form-grid">
+        <div>
+          <div id="drop" class="drop" tabindex="0" aria-label="Dodaj zdjęcie — przeciągnij plik, kliknij, albo wklej (Ctrl+V)">
+            <div id="dropHint"><strong>Dodaj zdjęcie</strong><br/>Przeciągnij plik, <u>wklej (Ctrl+V)</u> lub kliknij (PNG/JPG)</div>
+            <img id="dropImg" alt="" style="display:none"/>
+            <input id="imgFile" type="file" accept="image/*" hidden />
+          </div>
+          <div class="hint">Obraz kompresujemy do max. 800 px i zapisujemy lokalnie (IndexedDB).</div>
+        </div>
+        <div>
+          <div class="cols">
+            <input id="lvlIn" class="input" type="number" min="1" placeholder="lvl (np. 93)"/>
+            <select id="typeIn" class="input">
+              <option>Legendarny</option><option>Heroiczny</option><option>Unikatowy</option><option>Inny</option>
+            </select>
+            <input id="priceIn" class="input" type="text" placeholder="cena (np. 500m)"/>
+            <input id="contactIn" class="input" type="text" placeholder="kontakt (np. @twójNick)"/>
+          </div>
+          <div class="hint" id="formHint" style="margin-top:8px"></div>
+        </div>
+      </div>
+    </div>
+    <footer>
+      <button type="button" class="btn" id="clearLocal">Wyczyść moje lokalne oferty</button>
+      <button type="button" class="btn primary" id="saveBtn">Dodaj</button>
+    </footer>
+  </div>
+</div>
+
+<!-- MODAL POTWIERDZENIA USUNIĘCIA (UI mówi tylko o PIN-ie) -->
+<div id="confirm" class="confirm" role="dialog" aria-modal="true" aria-labelledby="cTitle">
+  <div class="box">
+    <div id="cTitle" style="font-weight:700;margin-bottom:6px">Potwierdzenie</div>
+    <div>Czy na pewno chcesz zamknąć ofertę?</div>
+    <div class="field">
+      <label class="small" for="pinConfirm">Wpisz <b>PIN</b>, aby potwierdzić</label>
+      <input id="pinConfirm" class="input" type="password" placeholder="PIN" />
+    </div>
+    <div id="cErr" class="small" style="color:#ff9a9a"></div>
+    <div class="row"><button id="cNo" class="btn">nie</button><button id="cYes" class="btn primary">tak</button></div>
+  </div>
+</div>
+
+<!-- MODAL PROFILU (Nick + PIN przy pierwszym uruchomieniu) -->
+<div id="profile" class="confirm" role="dialog" aria-modal="true" aria-labelledby="pTitle">
+  <div class="box">
+    <div id="pTitle" style="font-weight:700;margin-bottom:6px">Ustaw swój profil</div>
+    <div class="field"><label class="small" for="nickSet">Nick (np. z Discorda)</label><input id="nickSet" class="input" type="text" placeholder="np. @arek#1234"/></div>
+    <div class="field"><label class="small" for="pinSet">PIN (min. 6 cyfr – nie zapisujemy go wprost)</label><input id="pinSet" class="input" type="password" placeholder="np. 123456"/></div>
+    <div id="pErr" class="small" style="color:#ff9a9a"></div>
+    <div class="row"><button id="pSave" class="btn primary">zapisz</button></div>
+  </div>
+</div>
+
+<script>
+  document.title = 'Utopia sprzedaje';
+
+  
+  const ADMIN_SECRET = atob('dXQwcGlhNjM0'); // "ut0pia634"
+
+  /* ===== IndexedDB – obrazy ===== */
+  const dbp = new Promise((resolve, reject)=>{
+    const req = indexedDB.open('margo-market', 1);
+    req.onupgradeneeded = () => { const db=req.result; if(!db.objectStoreNames.contains('images')) db.createObjectStore('images'); };
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror = ()=> reject(req.error);
+  });
+  async function putImage(key, blob){ const db=await dbp; return new Promise((res,rej)=>{ const tx=db.transaction('images','readwrite'); tx.objectStore('images').put(blob,key); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
+  async function getImageBlob(key){ const db=await dbp; return new Promise((res,rej)=>{ const tx=db.transaction('images','readonly'); const rq=tx.objectStore('images').get(key); rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>rej(rq.error); }); }
+  async function deleteImage(key){ const db=await dbp; return new Promise((res,rej)=>{ const tx=db.transaction('images','readwrite'); tx.objectStore('images').delete(key); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
+
+  /* ===== Profile (nick + PIN → ownerId) ===== */
+  const OWNER_KEY = 'utopia_owner_v1';
+  let OWNER = loadOwner();
+
+  function loadOwner(){ try{ return JSON.parse(localStorage.getItem(OWNER_KEY)||'null'); }catch(e){ return null; } }
+  async function deriveOwnerId(nick, pin){
+    const enc = new TextEncoder();
+    const salt = enc.encode('salt:'+nick+':utopia-pepper-v1');
+    const keyMat = await crypto.subtle.importKey('raw', enc.encode(pin), 'PBKDF2', false, ['deriveBits']);
+    const bits   = await crypto.subtle.deriveBits({name:'PBKDF2', hash:'SHA-256', salt, iterations:100000}, keyMat, 256);
+    return btoa(String.fromCharCode(...new Uint8Array(bits)));
+  }
+  async function saveOwner(nick, pin){
+    const ownerId = await deriveOwnerId(nick, pin);
+    OWNER = { nick, ownerId };
+    localStorage.setItem(OWNER_KEY, JSON.stringify(OWNER));
+    migrateUserOwner();
+  }
+
+  // modal profilu
+  const profEl = document.getElementById('profile');
+  const pSave = document.getElementById('pSave');
+  const pErr  = document.getElementById('pErr');
+  const nickSet = document.getElementById('nickSet');
+  const pinSet  = document.getElementById('pinSet');
+  if(!OWNER){ profEl.classList.add('open'); }
+  pSave.addEventListener('click', async ()=>{
+    const n = (nickSet.value||'').trim();
+    const p = (pinSet.value||'').trim();
+    if(n.length<2 || p.length<6){ pErr.textContent='Podaj nick i PIN (min. 6 cyfr).'; return; }
+    await saveOwner(n,p);
+    profEl.classList.remove('open');
+  });
+
+  /* ===== Oferty (tylko lokalne; bez przykładowych) ===== */
+  const LS_KEY='margo_offers_v8';
+  let USER=[]; try{ USER = JSON.parse(localStorage.getItem(LS_KEY)||'[]'); }catch(e){ USER=[]; }
+  function saveUser(){ localStorage.setItem(LS_KEY, JSON.stringify(USER)); }
+  function migrateUserOwner(){ if(!OWNER) return; let ch=false; for(const o of USER){ if(!o.ownerId){ o.ownerId=OWNER.ownerId; ch=true; } } if(ch) saveUser(); }
+  migrateUserOwner();
+
+  const all = ()=> USER;
+
+  /* ===== UI: filtry / render ===== */
+  const tabs=document.querySelectorAll('.tab');
+  const minEl=document.getElementById('minLvl');
+  const maxEl=document.getElementById('maxLvl');
+  const tbody=document.getElementById('tbody');
+  const empty=document.getElementById('empty');
+  const previewImg=document.getElementById('pImg');
+
+  const state={type:'Wszystkie',min:'',max:''};
+  tabs.forEach(b=>b.addEventListener('click',()=>{ state.type=b.dataset.type; tabs.forEach(t=>t.setAttribute('aria-selected', String(t===b))); render(); }));
+  document.getElementById('searchBtn').addEventListener('click',()=>{ state.min=minEl.value?+minEl.value:''; state.max=maxEl.value?+maxEl.value:''; render(); });
+  document.getElementById('resetBtn').addEventListener('click',()=>{ minEl.value=maxEl.value=''; state.min=state.max=''; state.type='Wszystkie'; tabs.forEach(t=>t.setAttribute('aria-selected', t.dataset.type==='Wszystkie')); render(); });
+
+  function typeMatches(t){ if(state.type==='Wszystkie') return true; if(state.type==='Inny') return t==='Inny'||t==='Inne'; return t===state.type; }
+  function byFilters(x){ if(!typeMatches(x.type)) return false; if(state.min!=='' && x.lvl<state.min) return false; if(state.max!=='' && x.lvl>state.max) return false; return true; }
+
+  function render(){
+    const data = all().filter(byFilters).sort((a,b)=> a.lvl-b.lvl || a.type.localeCompare(b.type));
+    tbody.innerHTML='';
+    if(!data.length){ empty.hidden=false; setPreviewEmpty(); return; } else empty.hidden=true;
+
+    for(const it of data){
+      const tr=document.createElement('tr');
+      tr.innerHTML = `
+        <td><span class="badge">${it.lvl}</span></td>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px">
+            <img class="thumb" alt="miniatura"/>
+            <div style="font-size:12px;color:var(--muted)">${it.type}</div>
+          </div>
+        </td>
+        <td>${it.price}</td>
+        <td><a href="#" title="Kopiuj kontakt">${it.contact}</a></td>
+        <td><button class="xbtn" title="Usuń ofertę">✕</button></td>`;
+      tr.querySelector('a').addEventListener('click', e=>{ e.preventDefault(); navigator.clipboard.writeText(it.contact); });
+      tr.addEventListener('click', e=>{ if(e.target.closest('.xbtn')) return; show(it); });
+      tbody.appendChild(tr);
+      setImageSrc(tr.querySelector('img'), it);
+
+      tr.querySelector('.xbtn').addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        const isOwner = !!(OWNER && it.ownerId && OWNER.ownerId===it.ownerId);
+        const ok = await confirmDeleteWithPin(isOwner);
+        if(!ok) return;
+        const idx = USER.findIndex(u=>u.id===it.id);
+        if(idx>-1){
+          const removed = USER.splice(idx,1)[0];
+          if(removed && removed.imgKey){ try{ await deleteImage(removed.imgKey); }catch(_){} }
+          saveUser(); render();
+        }
+      });
+    }
+    show(data[0]);
+  }
+
+  function setPreviewEmpty(){
+    previewImg.src='';
+    document.getElementById('pMeta').innerHTML =
+      `<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`;
+  }
+
+  async function setImageSrc(imgEl, offer){
+    if(!imgEl) return;
+    if(offer.imgUrl){ imgEl.src = offer.imgUrl; return; }
+    if(offer.imgKey){
+      const blob = await getImageBlob(offer.imgKey);
+      imgEl.src = blob ? URL.createObjectURL(blob) : "";
+    }
+  }
+
+  async function show(it){
+    if(!it){ setPreviewEmpty(); return; }
+    await setImageSrc(previewImg, it);
+    document.getElementById('pMeta').innerHTML =
+      `<div>Typ: <b>${it.type}</b></div>
+       <div>LVL: <b>${it.lvl}</b></div>
+       <div>Cena: <b>${it.price}</b></div>
+       <div>Kontakt: <b>${it.contact}</b></div>`;
+  }
+
+  /* ===== Modal dodawania ===== */
+  const overlay=document.getElementById('overlay');
+  const addBtn=document.getElementById('addBtn');
+  const closeBtn=document.getElementById('closeBtn');
+  const saveBtn=document.getElementById('saveBtn');
+  const clearBtn=document.getElementById('clearLocal');
+  const hint=document.getElementById('formHint');
+
+  const drop=document.getElementById('drop'), dropImg=document.getElementById('dropImg'), dropHint=document.getElementById('dropHint'), imgFile=document.getElementById('imgFile');
+  const lvlIn=document.getElementById('lvlIn'), typeIn=document.getElementById('typeIn'), priceIn=document.getElementById('priceIn'), contactIn=document.getElementById('contactIn');
+  let imageBlob=null;
+
+  function openModal(){ if(!OWNER){ document.getElementById('profile').classList.add('open'); return; } overlay.classList.add('open'); hint.textContent=''; saveBtn.disabled=false; drop.focus(); }
+  function closeModal(){ overlay.classList.remove('open'); resetForm(); }
+  function resetForm(){ [lvlIn,priceIn,contactIn].forEach(i=>i.value=''); typeIn.value='Legendarny'; imageBlob=null; dropImg.style.display='none'; dropHint.style.display='block'; }
+
+  addBtn.addEventListener('click', openModal);
+  closeBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) closeModal(); });
+  document.addEventListener('keydown', e=>{ if(overlay.classList.contains('open') && e.key==='Escape') closeModal(); });
+
+  ['dragenter','dragover','dragleave','drop'].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation(); }));
+  ['dragenter','dragover'].forEach(()=> drop.classList.add('drag'));
+  ['dragleave','drop'].forEach(()=> drop.classList.remove('drag'));
+  drop.addEventListener('click', ()=> imgFile.click());
+  drop.addEventListener('drop', e=> handleFiles(e.dataTransfer.files));
+  imgFile.addEventListener('change', ()=> handleFiles(imgFile.files));
+
+  document.addEventListener('paste', (e)=>{
+    if(!overlay.classList.contains('open')) return;
+    const items = e.clipboardData && e.clipboardData.items; if(!items) return;
+    for(const it of items){ if(it.type && it.type.startsWith('image/')){ const f=it.getAsFile(); if(f) handleFile(f); break; } }
+  });
+
+  function handleFiles(list){ if(list && list[0]) handleFile(list[0]); }
+  function handleFile(file){
+    if(!file.type.startsWith('image/')){ hint.textContent='To nie jest obraz.'; return; }
+    const reader=new FileReader();
+    reader.onload = ev => compressToMax(ev.target.result, 800, blob=>{
+      imageBlob = blob; dropImg.src = URL.createObjectURL(blob);
+      dropImg.style.display='block'; dropHint.style.display='none';
+    });
+    reader.readAsDataURL(file);
+  }
+  function compressToMax(dataUrl, maxSize, cb){
+    const img = new Image();
+    img.onload = ()=>{
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      const w = Math.round(img.width*scale), h = Math.round(img.height*scale);
+      const canvas = document.createElement('canvas'); canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      canvas.toBlob(blob=> cb(blob), 'image/png', 0.95);
+    };
+    img.src = dataUrl;
+  }
+
+  saveBtn.addEventListener('click', async ()=>{
+    if(!OWNER){ document.getElementById('profile').classList.add('open'); return; }
+    const lvl = parseInt(lvlIn.value,10);
+    const type = typeIn.value;
+    const price = (priceIn.value||'').trim();
+    const contact = (contactIn.value||'').trim();
+    if(!lvl || !price || !contact){ hint.textContent='Uzupełnij: lvl, cena, kontakt.'; return; }
+
+    const id = (type[0]||'X') + String(lvl).padStart(3,'0') + '-' + Math.random().toString(36).slice(2,6).toUpperCase();
+    const offer = { id, type, lvl, price, contact, ownerId: OWNER.ownerId };
+
+    if(imageBlob){ await putImage(id, imageBlob); offer.imgKey = id; }
+
+    USER.push(offer); saveUser(); render(); closeModal();
+  });
+
+  clearBtn.addEventListener('click', ()=>{
+    if(confirm('Usunąć wszystkie oferty dodane lokalnie na tym komputerze?')){
+      USER=[]; saveUser(); render(); closeModal();
+    }
+  });
+
+  /* ===== Potwierdzenie usunięcia (wpis PIN; admin działa "po cichu") ===== */
+  const confirmEl = document.getElementById('confirm');
+  const cYes = document.getElementById('cYes');
+  const cNo  = document.getElementById('cNo');
+  const cErr = document.getElementById('cErr');
+  const pinConfirm = document.getElementById('pinConfirm');
+
+  function confirmDeleteWithPin(isOwner){
+    confirmEl.classList.add('open');
+    cErr.textContent=''; pinConfirm.value=''; pinConfirm.focus();
+    return new Promise(resolve=>{
+      const onNo = ()=> cleanup(false);
+      const onYes = async ()=>{
+        const val = (pinConfirm.value||'').trim();
+        if(!val){ cErr.textContent='Wpisz PIN.'; return; }
+        // Admin (ukryty) – zawsze może
+        if(val === ADMIN_SECRET){ cleanup(true); return; }
+        // Właściciel – swoim PIN-em
+        if(isOwner && OWNER){
+          const derived = await deriveOwnerId(OWNER.nick, val);
+          if(derived === OWNER.ownerId){ cleanup(true); return; }
+        }
+        cErr.textContent='Błędny PIN.';
+      };
+      function onKey(e){ if(e.key==='Escape'){ cleanup(false); } }
+      function cleanup(res){ cNo.removeEventListener('click', onNo); cYes.removeEventListener('click', onYes);
+        document.removeEventListener('keydown', onKey); confirmEl.classList.remove('open'); resolve(res); }
+      cNo.addEventListener('click', onNo);
+      cYes.addEventListener('click', onYes);
+      document.addEventListener('keydown', onKey);
+    });
+  }
+
+  /* START */
+  document.getElementById('overlay').classList.remove('open');
+  render();
+</script>
+</body>
+</html>
