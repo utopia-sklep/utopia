@@ -276,9 +276,15 @@
     // Render
     function setPreviewEmpty(){
       if (previewImg){
+        // ważne: wyłącz fallback ustawiony w setImg, bo inaczej "src=''" wywoła onerror i przywróci stare zdjęcie
+        previewImg.onerror = null;
         previewImg.src = '';
         previewImg.hidden = true;
       }
+      if (pMeta){
+        pMeta.innerHTML = '<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>';
+      }
+    }
       if (pMeta){
         pMeta.innerHTML = '<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>';
       }
@@ -337,8 +343,8 @@
     // Dodawanie / Edycja
     let imageBlob=null, EDIT_MODE=false, CURRENT=null;
     multiChk.addEventListener('change',()=>{ qtyIn.disabled = !multiChk.checked; if(!multiChk.checked) qtyIn.value=''; });
-    function openModal(edit=false, item=null){ EDIT_MODE=edit; CURRENT=item; document.getElementById('titleAdd').textContent = edit ? 'Edytuj ofertę' : 'Dodawanie oferty'; saveBtn.textContent='Zapisz'; overlay.classList.add('open'); hint.textContent=''; saveBtn.disabled=false; drop.focus(); imageBlob=null; dropImg.style.display='none'; dropHint.style.display='block'; lvlIn.value=priceIn.value=contactIn.value=''; typeIn.value='Legendarny'; multiChk.checked=false; qtyIn.disabled=true; qtyIn.value=''; if(edit && item){ lvlIn.value=item.lvl; typeIn.value=item.type; priceIn.value=item.price; contactIn.value=item.contact; if(item.qty && Number(item.qty)>1){ multiChk.checked=true; qtyIn.disabled=false; qtyIn.value=item.qty; } if(item.imgUrl||item.fileId){ setImg(dropImg, item.imgUrl||item.fileId); dropImg.style.display='block'; dropHint.style.display='none'; } } }
-    function closeModal(){ overlay.classList.remove('open'); }
+    function openModal(edit=false, item=null){ EDIT_MODE=edit; CURRENT=item; document.getElementById('titleAdd').textContent = edit ? 'Edytuj ofertę' : 'Dodawanie oferty'; saveBtn.textContent='Zapisz'; overlay.classList.add('open'); hint.textContent=''; saveBtn.disabled=false; drop.focus(); imageBlob=null; clearImg(dropImg); dropImg.style.display='none'; dropHint.style.display='block'; lvlIn.value=priceIn.value=contactIn.value=''; typeIn.value='Legendarny'; multiChk.checked=false; qtyIn.disabled=true; qtyIn.value=''; if(edit && item){ lvlIn.value=item.lvl; typeIn.value=item.type; priceIn.value=item.price; contactIn.value=item.contact; if(item.qty && Number(item.qty)>1){ multiChk.checked=true; qtyIn.disabled=false; qtyIn.value=item.qty; } if(item.imgUrl||item.fileId){ setImg(dropImg, item.imgUrl||item.fileId); dropImg.hidden=false; dropImg.style.display='block'; dropHint.style.display='none'; } } }
+    function closeModal(){ clearImg(dropImg); dropImg.style.display='none'; dropHint.style.display='block'; overlay.classList.remove('open'); }
     addBtn.addEventListener('click',()=>openModal(false,null));
     closeBtn.addEventListener('click',closeModal);
     overlay.addEventListener('click',e=>{ if(e.target===overlay) closeModal(); });
@@ -350,7 +356,7 @@
     imgFile.addEventListener('change',()=>handleFiles(imgFile.files));
     document.addEventListener('paste',e=>{ if(!overlay.classList.contains('open')) return; const items=e.clipboardData&&e.clipboardData.items; if(!items) return; for(const it of items){ if(it.type&&it.type.startsWith('image/')){ const f=it.getAsFile(); if(f) handleFile(f); break; } } });
     function handleFiles(list){ if(list&&list[0]) handleFile(list[0]); }
-    function handleFile(file){ if(!file.type.startsWith('image/')){ hint.textContent='To nie jest obraz.'; return } const reader=new FileReader(); reader.onload = ev => compressToMax(ev.target.result,800,blob=>{ imageBlob=blob; dropImg.src=URL.createObjectURL(blob); dropImg.style.display='block'; dropHint.style.display='none'; }); reader.readAsDataURL(file); }
+    function handleFile(file){ if(!file.type.startsWith('image/')){ hint.textContent='To nie jest obraz.'; return } const reader=new FileReader(); reader.onload = ev => compressToMax(ev.target.result,800,blob=>{ imageBlob=blob; dropImg.hidden=false; dropImg.src=URL.createObjectURL(blob); dropImg.style.display='block'; dropHint.style.display='none'; }); reader.readAsDataURL(file); }
     function compressToMax(dataUrl,max,cb){ const img=new Image(); img.onload=()=>{ const s=Math.min(1,max/Math.max(img.width,img.height)); const w=Math.round(img.width*s),h=Math.round(img.height*s); const c=document.createElement('canvas'); c.width=w;c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); c.toBlob(b=>cb(b),'image/png',0.95); }; img.src=dataUrl; }
 
     saveBtn.addEventListener('click', async ()=>{
