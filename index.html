@@ -9,8 +9,9 @@
   *{box-sizing:border-box}
   html,body{margin:0;background:linear-gradient(180deg,#0b0d11,#0c1016 60%,#0a0c10);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif}
   a{color:var(--accent)}
-  .wrap{max-width:1200px;margin:24px auto;padding:16px}
+  .wrap{max-width:1200px;margin:24px auto;padding:16px;position:relative}
   header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .right{margin-left:auto}
   .gem{width:28px;height:28px;border:var(--border);border-radius:8px;background:radial-gradient(circle at 30% 30%,#ffd789,#8a6a18);box-shadow:inset 0 0 12px rgba(255,215,137,.6)}
   h1{font-size:20px;margin:0}
   .toolbar{background:#12151b;border:var(--border);border-radius:var(--radius);padding:10px;box-shadow:var(--shadow)}
@@ -51,19 +52,21 @@
   .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
   .cols .input{height:44px;width:100%}
   .hint{font-size:12px;color:var(--muted);margin-top:8px}
-  .confirm{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);padding:16px}
-  .confirm.open{display:flex}
-  .confirm .box{background:#12151b;border:var(--border);border-radius:12px;min-width:320px;max-width:95vw;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
-  .confirm .row{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
-  .field{display:flex;flex-direction:column;gap:6px;margin-top:8px}
-  .small{font-size:12px;color:var(--muted)}
   .actions{white-space:nowrap}
   .iconbtn{border:var(--border);background:#0f141b;color:var(--text);border-radius:8px;height:34px;padding:0 10px;cursor:pointer;margin-right:6px}
+  /* Admin login box */
+  .adminbox{position:fixed;right:16px;bottom:16px;background:#12151b;border:var(--border);border-radius:12px;padding:10px;box-shadow:var(--shadow);min-width:260px}
+  .adminbox .row{display:flex;gap:8px;margin-top:8px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header><span class="gem"></span><h1>Utopia sprzedaje</h1></header>
+  <header>
+    <span class="gem"></span><h1>Utopia sprzedaje</h1>
+    <div class="right">
+      <button id="settingsBtn" class="btn">Zmień ustawienia</button>
+    </div>
+  </header>
 
   <section class="toolbar">
     <div class="tabs">
@@ -137,17 +140,40 @@
   </div>
 </div>
 
-<!-- MODAL: PIN (używany i do usuwania, i do edycji) -->
-<div id="confirm" class="confirm" role="dialog" aria-modal="true" aria-labelledby="cTitle">
-  <div class="box">
-    <div id="cTitle" style="font-weight:700;margin-bottom:6px">Potwierdzenie</div>
-    <div id="cMsg">Podaj PIN, aby potwierdzić.</div>
-    <div class="field" style="margin-top:8px">
-      <label class="small" for="pinConfirm">PIN</label>
-      <input id="pinConfirm" class="input" type="password" placeholder="PIN" inputmode="numeric" pattern="[0-9]*">
+<!-- MODAL: ustawienia profilu -->
+<div id="profile" class="overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pTitle">
+    <header><h2 id="pTitle">Ustawienia profilu</h2><button class="closeBtn" id="pClose">Zamknij ✕</button></header>
+    <div class="content">
+      <div class="cols">
+        <div>
+          <div class="label">Nick (np. z Discorda)</div>
+          <input id="nickSet" class="input" type="text" placeholder="@nick#0000">
+        </div>
+        <div>
+          <div class="label">PIN (min. 4 cyfry)</div>
+          <input id="pinSet" class="input" type="password" inputmode="numeric" pattern="[0-9]*" placeholder="np. 1234">
+        </div>
+      </div>
+      <div id="pErr" class="hint" style="color:#ff9a9a;margin-top:8px"></div>
     </div>
-    <div id="cErr" class="small" style="color:#ff9a9a"></div>
-    <div class="row"><button id="cNo" class="btn">anuluj</button><button id="cYes" class="btn primary">ok</button></div>
+    <footer style="display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;background:#121722;border-top:1px solid rgba(227,179,65,.2)">
+      <button id="pReset" class="btn">Resetuj profil</button>
+      <button id="pSave" class="btn primary">Zapisz</button>
+    </footer>
+  </div>
+</div>
+
+<!-- Admin login box -->
+<div class="adminbox" id="adminBox">
+  <div id="adminStatus"><b>Admin:</b> nie zalogowany</div>
+  <div id="adminLoginArea">
+    <div class="label" style="margin-top:6px">Hasło admina</div>
+    <input id="adminPass" class="input" type="password" placeholder="••••••••">
+    <div class="row"><button id="adminLogin" class="btn primary">Zaloguj</button></div>
+  </div>
+  <div id="adminLogoutArea" style="display:none">
+    <div class="row"><button id="adminLogout" class="btn">Wyloguj</button></div>
   </div>
 </div>
 
@@ -157,7 +183,10 @@
 
   /* === profil (nick + PIN -> ownerId) === */
   const OWNER_KEY='utopia_owner_v1';
+  const ADMIN_KEY='utopia_admin_token_v1';
   let OWNER = loadOwner();
+  let ADMIN_TOKEN = localStorage.getItem(ADMIN_KEY) || '';
+
   function loadOwner(){ try{return JSON.parse(localStorage.getItem(OWNER_KEY)||'null')}catch(e){return null} }
   async function deriveOwnerId(nick, pin){
     const enc = new TextEncoder();
@@ -165,6 +194,18 @@
     const keyMat = await crypto.subtle.importKey('raw', enc.encode(pin),'PBKDF2',false,['deriveBits']);
     const bits = await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:100000}, keyMat, 256);
     return btoa(String.fromCharCode(...new Uint8Array(bits)));
+  }
+  async function saveOwner(nick,pin){
+    const ownerId = await deriveOwnerId(nick,pin);
+    OWNER = {nick, ownerId};
+    localStorage.setItem(OWNER_KEY, JSON.stringify(OWNER));
+  }
+
+  /* hash do adminToken (SHA-256 → base64) */
+  async function sha256b64(str){
+    const enc = new TextEncoder();
+    const hash = await crypto.subtle.digest('SHA-256', enc.encode(str));
+    return btoa(String.fromCharCode(...new Uint8Array(hash)));
   }
 
   /* === API === */
@@ -175,16 +216,16 @@
     const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'text/plain; charset=utf-8' }, body });
     const text = await r.text(); try { return JSON.parse(text); } catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}`}; }
   }
-  async function apiDelete(id, typedPin, isOwner){
-    const ownerIdTry = (isOwner && OWNER) ? await deriveOwnerId(OWNER.nick, typedPin) : '';
-    const body = JSON.stringify({ action:'delete', id, pin:typedPin, ownerIdTry });
+  async function apiDelete(id){
+    const body = JSON.stringify({ action:'delete', id,
+      ownerIdTry: OWNER?.ownerId || '', adminToken: ADMIN_TOKEN || '' });
     const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'text/plain; charset=utf-8' }, body });
     const text = await r.text(); try { return JSON.parse(text); } catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}`}; }
   }
-  async function apiUpdate(id, fields, typedPin, isOwner, blob){
-    const ownerIdTry = (isOwner && OWNER) ? await deriveOwnerId(OWNER.nick, typedPin) : '';
+  async function apiUpdate(id, fields, blob){
     const imgData = blob ? await blobToDataURL(blob) : '';
-    const body = JSON.stringify({ action:'update', id, ...fields, imgData, pin:typedPin, ownerIdTry });
+    const body = JSON.stringify({ action:'update', id, ...fields,
+      imgData, ownerIdTry: OWNER?.ownerId || '', adminToken: ADMIN_TOKEN || '' });
     const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'text/plain; charset=utf-8' }, body });
     const text = await r.text(); try { return JSON.parse(text); } catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}`}; }
   }
@@ -202,13 +243,7 @@
 
   function typeMatches(t){ if(state.type==='Wszystkie') return true; if(state.type==='Inny') return t==='Inny'||t==='Inne'; return t===state.type; }
   function byFilters(x){ if(!typeMatches(x.type)) return false; if(state.min!=='' && x.lvl<state.min) return false; if(state.max!=='' && x.lvl>state.max) return false; return true; }
-
-  function toThumb(url){
-    if (!url) return '';
-    if (url.includes('thumbnail?id=')) return url;
-    const m = url.match(/[?&]id=([^&]+)/);
-    return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600` : url;
-  }
+  function toThumb(url){ if(!url) return ''; if(url.includes('thumbnail?id=')) return url; const m=url.match(/[?&]id=([^&]+)/); return m?`https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600`:url; }
 
   async function loadAndRender(){ REMOTE = await apiList(); render(); }
 
@@ -217,6 +252,10 @@
     tbody.innerHTML=''; if(!data.length){ empty.hidden=false; setPreviewEmpty(); return } else empty.hidden=true;
     for(const it of data){
       const qtyTxt = (it.qty && Number(it.qty)>1) ? it.qty : '';
+      const isOwner = !!(OWNER && it.ownerId && OWNER.ownerId===it.ownerId);
+      const canAdmin = !!ADMIN_TOKEN;
+      const showActions = isOwner || canAdmin;
+
       const tr=document.createElement('tr');
       tr.innerHTML = `
         <td><span class="badge">${it.lvl}</span></td>
@@ -227,21 +266,22 @@
         <td>${qtyTxt}</td>
         <td>${it.price}</td>
         <td><a href="#" title="Kopiuj kontakt">${it.contact}</a></td>
-        <td class="actions">
+        <td class="actions">${showActions?`
           <button class="iconbtn edit" title="Edytuj">✎</button>
-          <button class="iconbtn del"  title="Usuń">✕</button>
+          <button class="iconbtn del"  title="Usuń">✕</button>`:''}
         </td>`;
       tr.querySelector('a').addEventListener('click',e=>{e.preventDefault();navigator.clipboard.writeText(it.contact);});
       tr.addEventListener('click',e=>{ if(e.target.closest('.iconbtn')) return; show(it); });
-      tr.querySelector('.del').addEventListener('click',()=> onDelete(it));
-      tr.querySelector('.edit').addEventListener('click',()=> onEdit(it));
+      if(showActions){
+        tr.querySelector('.del').addEventListener('click',()=> onDelete(it));
+        tr.querySelector('.edit').addEventListener('click',()=> onEdit(it));
+      }
       tbody.appendChild(tr);
     }
     if(data[0]) show(data[0]); else setPreviewEmpty();
   }
   function setPreviewEmpty(){
-    previewImg.src='';
-    document.getElementById('pMeta').innerHTML=`<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`;
+    previewImg.src=''; document.getElementById('pMeta').innerHTML=`<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`;
   }
   function show(it){
     previewImg.src = toThumb(it.imgUrl||'');
@@ -310,46 +350,71 @@
       saveBtn.disabled=false;
       if(!res.ok){ hint.textContent = 'Błąd zapisu: ' + (res.error || 'spróbuj ponownie.'); return }
     } else {
-      // edycja wymaga PIN-u (właściciel lub admin)
-      const pin = await askPin('Podaj PIN właściciela lub hasło admina, aby zapisać zmiany.');
-      if(pin == null){ saveBtn.disabled=false; return }
-      const isOwner = !!(OWNER && CURRENT && OWNER.ownerId===CURRENT.ownerId);
       const fields = { type, lvl, price, qty, contact };
-      const res = await apiUpdate(CURRENT.id, fields, pin, isOwner, imageBlob).catch(()=>({ok:false}));
+      const res = await apiUpdate(CURRENT.id, fields, imageBlob).catch(()=>({ok:false}));
       saveBtn.disabled=false;
       if(!res.ok){ hint.textContent = 'Błąd edycji: ' + (res.error || 'spróbuj ponownie.'); return }
     }
     closeModal(); await loadAndRender();
   });
 
-  /* === PIN modal (uniwersalny) === */
-  const confirmEl=document.getElementById('confirm'), cYes=document.getElementById('cYes'), cNo=document.getElementById('cNo'),
-        cErr=document.getElementById('cErr'), pinConfirm=document.getElementById('pinConfirm'), cMsg=document.getElementById('cMsg');
-  function askPin(message){
-    return new Promise(resolve=>{
-      cMsg.textContent = message || 'Podaj PIN.';
-      cErr.textContent=''; pinConfirm.value='';
-      confirmEl.classList.add('open'); pinConfirm.focus();
-      const onNo = ()=>{ cleanup(); resolve(null); };
-      const onYes = ()=>{ const v=(pinConfirm.value||'').trim(); if(!v){ cErr.textContent='Wpisz PIN.'; return } cleanup(); resolve(v); };
-      function cleanup(){ cNo.removeEventListener('click',onNo); cYes.removeEventListener('click',onYes); confirmEl.classList.remove('open'); }
-      cNo.addEventListener('click',onNo); cYes.addEventListener('click',onYes);
-      document.addEventListener('keydown',function esc(e){ if(e.key==='Escape'){ onNo(); document.removeEventListener('keydown',esc);} });
-    });
-  }
-
   async function onDelete(item){
-    const pin = await askPin('Wpisz PIN właściciela lub hasło admina, aby usunąć ofertę.');
-    if(pin==null) return;
-    const isOwner = !!(OWNER && item.ownerId && OWNER.ownerId===item.ownerId);
-    const res = await apiDelete(item.id, pin, isOwner).catch(()=>({ok:false}));
+    const res = await apiDelete(item.id).catch(()=>({ok:false}));
     if(!res.ok){ alert(res.error || 'Błąd operacji.'); return }
     await loadAndRender();
   }
   function onEdit(item){ openModal(true,item); }
 
+  /* === Ustawienia (profil) === */
+  const profileEl=document.getElementById('profile'), settingsBtn=document.getElementById('settingsBtn');
+  const pClose=document.getElementById('pClose'), pSave=document.getElementById('pSave'), pReset=document.getElementById('pReset'), pErr=document.getElementById('pErr');
+  const nickSet=document.getElementById('nickSet'), pinSet=document.getElementById('pinSet');
+
+  settingsBtn.addEventListener('click',()=>{ nickSet.value=OWNER?.nick||''; pinSet.value=''; pErr.textContent=''; profileEl.classList.add('open'); });
+  pClose.addEventListener('click',()=>profileEl.classList.remove('open'));
+  profileEl.addEventListener('click',e=>{ if(e.target===profileEl) profileEl.classList.remove('open'); });
+
+  pSave.addEventListener('click', async ()=>{
+    const n=(nickSet.value||'').trim(), p=(pinSet.value||'').trim();
+    if(n.length<2||p.length<4){ pErr.textContent='Podaj nick i PIN (min. 4 cyfry).'; return; }
+    await saveOwner(n,p); profileEl.classList.remove('open'); await loadAndRender();
+  });
+  pReset.addEventListener('click',()=>{
+    localStorage.removeItem(OWNER_KEY); OWNER=null; profileEl.classList.remove('open'); loadAndRender();
+  });
+
+  /* === Admin login === */
+  const adminStatus=document.getElementById('adminStatus');
+  const adminLoginArea=document.getElementById('adminLoginArea');
+  const adminLogoutArea=document.getElementById('adminLogoutArea');
+  const adminPass=document.getElementById('adminPass');
+  const adminLoginBtn=document.getElementById('adminLogin');
+  const adminLogoutBtn=document.getElementById('adminLogout');
+
+  function refreshAdminUI(){
+    if(ADMIN_TOKEN){
+      adminStatus.innerHTML = '<b>Admin:</b> zalogowany';
+      adminLoginArea.style.display='none';
+      adminLogoutArea.style.display='block';
+    }else{
+      adminStatus.innerHTML = '<b>Admin:</b> nie zalogowany';
+      adminLoginArea.style.display='block';
+      adminLogoutArea.style.display='none';
+    }
+    render();
+  }
+  adminLoginBtn.addEventListener('click', async ()=>{
+    const pw=(adminPass.value||'').trim(); if(!pw) return;
+    ADMIN_TOKEN = await sha256b64(pw);  // walidacja i tak będzie po stronie backendu
+    localStorage.setItem(ADMIN_KEY, ADMIN_TOKEN);
+    adminPass.value=''; refreshAdminUI();
+  });
+  adminLogoutBtn.addEventListener('click', ()=>{
+    ADMIN_TOKEN=''; localStorage.removeItem(ADMIN_KEY); refreshAdminUI();
+  });
+
   /* start */
-  async function start(){ await loadAndRender(); }
+  async function start(){ await loadAndRender(); refreshAdminUI(); }
   function setPreviewEmpty(){ previewImg.src=''; document.getElementById('pMeta').innerHTML=`<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`; }
   start();
 </script>
