@@ -363,12 +363,14 @@
 
     if(!EDIT_MODE){
       const offer = { type, lvl, price, qty, contact, ownerId: OWNER?.ownerId||'' };
-      const res = await apiAdd(offer, imageBlob).catch(()=>({ok:false}));
+      const res = await apiAdd(offer, imageBlob);
+if (!res.ok) { hint.textContent = 'Błąd zapisu: ' + (res.error || 'spróbuj ponownie.'); return; }
       saveBtn.disabled=false;
       if(!res.ok){ hint.textContent = 'Błąd zapisu: ' + (res.error || 'spróbuj ponownie.'); return }
     } else {
       const fields = { type, lvl, price, qty, contact };
-      const res = await apiUpdate(CURRENT.id, fields, imageBlob).catch(()=>({ok:false}));
+      const res = await apiUpdate(CURRENT.id, fields, imageBlob);
+if (!res.ok) { hint.textContent = 'Błąd edycji: ' + (res.error || 'spróbuj ponownie.'); return; }
       saveBtn.disabled=false;
       if(!res.ok){ hint.textContent = 'Błąd edycji: ' + (res.error || 'spróbuj ponownie.'); return }
     }
@@ -376,7 +378,8 @@
   });
 
   async function onDelete(item){
-    const res = await apiDelete(item.id).catch(()=>({ok:false}));
+    const res = await apiDelete(item.id);
+if (!res.ok) { alert(res.error || 'Błąd operacji.'); return; }
     if(!res.ok){ alert(res.error || 'Błąd operacji.'); return }
     await loadAndRender();
   }
