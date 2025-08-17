@@ -349,12 +349,24 @@
     if(data[0]) show(data[0]); else setPreviewEmpty();
   }
   function setPreviewEmpty(){
-    previewImg.src=''; document.getElementById('pMeta').innerHTML=`<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`;
+    // wyczyść i ukryj podgląd, żeby nie zostawał obraz z poprzedniej kategorii
+    if (previewImg){
+      previewImg.removeAttribute('src');
+      previewImg.style.display = 'none';
+    }
+    const meta = document.getElementById('pMeta');
+    if (meta){
+      meta.innerHTML = `<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`;
+    }
   }
   function show(it){
-    setImg(previewImg, it.imgUrl||it.fileId||'');
+    if (previewImg){
+      previewImg.style.display = 'block';
+      setImg(previewImg, it.imgUrl||it.fileId||'');
+    }
     document.getElementById('pMeta').innerHTML =
       `<div>Typ: <b>${it.type||'—'}</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`;
+  }</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`;
   }
 
   /* === Dodawanie / Edycja === */
@@ -507,7 +519,17 @@
   /* start */
   function syncTabs(){ tabs.forEach(t=> t.setAttribute('aria-selected', String(t.dataset.type===state.type))); viewTabs.forEach(t=> t.setAttribute('aria-selected', String(t.dataset.view===state.view))); }
   async function start(){ syncTabs(); await loadAndRender(); refreshAdminUI(); }
-  function setPreviewEmpty(){ previewImg.src=''; document.getElementById('pMeta').innerHTML=`<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`; }
+  function setPreviewEmpty(){
+    // wyczyść i ukryj podgląd, żeby nie zostawał obraz z poprzedniej kategorii
+    if (previewImg){
+      previewImg.removeAttribute('src');
+      previewImg.style.display = 'none';
+    }
+    const meta = document.getElementById('pMeta');
+    if (meta){
+      meta.innerHTML = `<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`;
+    }
+  }
   start();
 </script>
 </body>
