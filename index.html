@@ -130,7 +130,7 @@
   </div>
 </div>
 
-<!-- MODAL: usuwanie (PIN) -->
+<!-- MODAL: usuwanie -->
 <div id="confirm" class="confirm" role="dialog" aria-modal="true" aria-labelledby="cTitle">
   <div class="box">
     <div id="cTitle" style="font-weight:700;margin-bottom:6px">Potwierdzenie</div>
@@ -156,7 +156,7 @@
 </div>
 
 <script>
-  /* === ADRES API === */
+  /* === ADRES API – PODMIEŃ NA SWÓJ URL Z /exec === */
   const API_URL = 'https://script.google.com/macros/s/AKfycbzWPygueePL-z1re__YROKMhY_mgiIbKp64mVdDgvovjBb5jxTe3RjgISQUEVbHZnvGVQ/exec';
 
   /* === profil (nick + PIN -> ownerId) === */
@@ -231,9 +231,12 @@
     }
     if(data[0]) show(data[0]); else setPreviewEmpty();
   }
-  function setPreviewEmpty(){ previewImg.src=''; document.getElementById('pMeta').innerHTML=`<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`; }
+  function setPreviewEmpty(){
+    previewImg.src='';
+    document.getElementById('pMeta').innerHTML=`<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`;
+  }
   function show(it){
-    previewImg.src = it.imgUrl||''; 
+    previewImg.src = it.imgUrl||'';
     document.getElementById('pMeta').innerHTML =
       `<div>Typ: <b>${it.type}</b></div><div>LVL: <b>${it.lvl}</b></div><div>Cena: <b>${it.price}</b></div><div>Kontakt: <b>${it.contact}</b></div>`;
   }
