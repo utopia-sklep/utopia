@@ -152,7 +152,7 @@
     <div class="content">
       <div class="cols">
         <div>
-          <div class="label">Nick (np. z Discorda)</div>
+          <div class="label">Wpisz swój nick z Discorda</div>
           <input id="nickSet" class="input" type="text" placeholder="@nick#0000">
         </div>
         <div>
@@ -352,7 +352,7 @@
       qtyIn.value='';
 
       // autouzupełnianie kontaktu z profilu (można nadpisać ręcznie)
-      if(!edit && OWNER && OWNER.nick){
+      if(!edit && OWNER && OWNER.nick && !contactIn.value){
         contactIn.value = OWNER.nick;
       }
 
@@ -364,7 +364,7 @@
         if(item.qty && Number(item.qty)>1){ multiChk.checked=true; qtyIn.disabled=false; qtyIn.value=item.qty; }
         if(item.imgUrl||item.fileId){ setImg(dropImg, item.imgUrl||item.fileId); dropImg.hidden=false; dropImg.style.display='block'; dropHint.style.display='none'; }
       }
-    } if(item.imgUrl||item.fileId){ setImg(dropImg, item.imgUrl||item.fileId); dropImg.hidden=false; dropImg.style.display='block'; dropHint.style.display='none'; } } }
+    }
     function closeModal(){ clearImg(dropImg); dropImg.style.display='none'; dropHint.style.display='block'; overlay.classList.remove('open'); }
     addBtn.addEventListener('click',()=>openModal(false,null));
     closeBtn.addEventListener('click',closeModal);
@@ -406,7 +406,13 @@
     function onEdit(item){ openModal(true,item); }
 
     // Ustawienia (profil)
-    settingsBtn.addEventListener('click',()=>{ nickSet.value=OWNER?.nick||''; pinSet.value=''; pErr.textContent=''; profileEl.classList.add('open'); });
+    settingsBtn.addEventListener('click',()=>{
+      // Wczytaj bieżące dane profilu do formularza (nick zostaje, pin pusty)
+      nickSet.value = OWNER?.nick || '';
+      pinSet.value = '';
+      pErr.textContent = '';
+      profileEl.classList.add('open');
+    });
     pClose.addEventListener('click',()=>profileEl.classList.remove('open'));
     profileEl.addEventListener('click',e=>{ if(e.target===profileEl) profileEl.classList.remove('open'); });
     pSave.addEventListener('click', async ()=>{ const n=(nickSet.value||'').trim(), p=(pinSet.value||'').trim(); if(n.length<2||p.length<4){ pErr.textContent='Podaj nick i PIN (min. 4 cyfry).'; return; } await saveOwner(n,p); profileEl.classList.remove('open'); await loadAndRender(); });
