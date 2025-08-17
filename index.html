@@ -328,7 +328,43 @@
     // Dodawanie / Edycja
     let imageBlob=null, EDIT_MODE=false, CURRENT=null;
     multiChk.addEventListener('change',()=>{ qtyIn.disabled = !multiChk.checked; if(!multiChk.checked) qtyIn.value=''; });
-    function openModal(edit=false, item=null){ EDIT_MODE=edit; CURRENT=item; document.getElementById('titleAdd').textContent = edit ? 'Edytuj ofertę' : 'Dodawanie oferty'; saveBtn.textContent='Zapisz'; overlay.classList.add('open'); hint.textContent=''; saveBtn.disabled=false; drop.focus(); imageBlob=null; clearImg(dropImg); dropImg.style.display='none'; dropHint.style.display='block'; lvlIn.value=priceIn.value=contactIn.value=''; typeIn.value='Legendarny'; multiChk.checked=false; qtyIn.disabled=true; qtyIn.value=''; if(edit && item){ lvlIn.value=item.lvl; typeIn.value=item.type; priceIn.value=item.price; contactIn.value=item.contact; if(item.qty && Number(item.qty)>1){ multiChk.checked=true; qtyIn.disabled=false; qtyIn.value=item.qty; } if(item.imgUrl||item.fileId){ setImg(dropImg, item.imgUrl||item.fileId); dropImg.hidden=false; dropImg.style.display='block'; dropHint.style.display='none'; } } }
+    function openModal(edit=false, item=null){
+      EDIT_MODE=edit; CURRENT=item;
+      document.getElementById('titleAdd').textContent = edit ? 'Edytuj ofertę' : 'Dodawanie oferty';
+      saveBtn.textContent='Zapisz';
+      overlay.classList.add('open');
+      hint.textContent='';
+      saveBtn.disabled=false;
+      drop.focus();
+
+      imageBlob=null;
+      clearImg(dropImg);
+      dropImg.style.display='none';
+      dropHint.style.display='block';
+
+      // reset pól
+      lvlIn.value='';
+      priceIn.value='';
+      contactIn.value='';
+      typeIn.value='Legendarny';
+      multiChk.checked=false;
+      qtyIn.disabled=true;
+      qtyIn.value='';
+
+      // autouzupełnianie kontaktu z profilu (można nadpisać ręcznie)
+      if(!edit && OWNER && OWNER.nick){
+        contactIn.value = OWNER.nick;
+      }
+
+      if(edit && item){
+        lvlIn.value = item.lvl;
+        typeIn.value = item.type;
+        priceIn.value = item.price;
+        contactIn.value = item.contact; // pozostaw kontakt z oferty przy edycji
+        if(item.qty && Number(item.qty)>1){ multiChk.checked=true; qtyIn.disabled=false; qtyIn.value=item.qty; }
+        if(item.imgUrl||item.fileId){ setImg(dropImg, item.imgUrl||item.fileId); dropImg.hidden=false; dropImg.style.display='block'; dropHint.style.display='none'; }
+      }
+    } if(item.imgUrl||item.fileId){ setImg(dropImg, item.imgUrl||item.fileId); dropImg.hidden=false; dropImg.style.display='block'; dropHint.style.display='none'; } } }
     function closeModal(){ clearImg(dropImg); dropImg.style.display='none'; dropHint.style.display='block'; overlay.classList.remove('open'); }
     addBtn.addEventListener('click',()=>openModal(false,null));
     closeBtn.addEventListener('click',closeModal);
