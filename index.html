@@ -144,7 +144,7 @@
   </div>
 </div>
 
-<!-- MODAL: profil (nick + PIN) -->
+<!-- MODAL: profil -->
 <div id="profile" class="confirm" role="dialog" aria-modal="true" aria-labelledby="pTitle">
   <div class="box">
     <div id="pTitle" style="font-weight:700;margin-bottom:6px">Ustaw swój profil</div>
@@ -156,10 +156,10 @@
 </div>
 
 <script>
-  /* === ADRES API === */
+  /* === ADRES API (podmień, jeśli potrzebujesz) === */
   const API_URL = 'https://script.google.com/macros/s/AKfycbzWPygueePL-z1re__YROKMhY_mgiIbKp64mVdDgvovjBb5jxTe3RjgISQUEVbHZnvGVQ/exec';
 
-  /* === profil (nick + PIN -> ownerId) === */
+  /* === profil: nick + PIN -> ownerId (lokalnie) === */
   const OWNER_KEY='utopia_owner_v1';
   let OWNER = loadOwner();
   function loadOwner(){ try{return JSON.parse(localStorage.getItem(OWNER_KEY)||'null')}catch(e){return null} }
@@ -212,7 +212,19 @@
   function typeMatches(t){ if(state.type==='Wszystkie') return true; if(state.type==='Inny') return t==='Inny'||t==='Inne'; return t===state.type; }
   function byFilters(x){ if(!typeMatches(x.type)) return false; if(state.min!=='' && x.lvl<state.min) return false; if(state.max!=='' && x.lvl>state.max) return false; return true; }
 
-  async function loadAndRender(){ REMOTE = await apiList(); render(); }
+  // awaryjna konwersja na miniaturę po stronie frontu
+  function toThumb(url){
+    if (!url) return '';
+    if (url.includes('thumbnail?id=')) return url;
+    const m = url.match(/[?&]id=([^&]+)/);
+    return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600` : url;
+  }
+
+  async function loadAndRender(){
+    REMOTE = await apiList();
+    render();
+  }
+
   function render(){
     const data = REMOTE.filter(byFilters).sort((a,b)=>a.lvl-b.lvl || a.type.localeCompare(b.type));
     tbody.innerHTML=''; if(!data.length){ empty.hidden=false; setPreviewEmpty(); return } else empty.hidden=true;
@@ -221,7 +233,7 @@
       tr.innerHTML = `
         <td><span class="badge">${it.lvl}</span></td>
         <td><div style="display:flex;align-items:center;gap:10px">
-              <img class="thumb" referrerpolicy="no-referrer" alt="miniatura" src="${it.imgUrl||''}">
+              <img class="thumb" referrerpolicy="no-referrer" alt="miniatura" src="${toThumb(it.imgUrl)}">
               <div style="font-size:12px;color:#aeb6c7">${it.type}</div>
             </div></td>
         <td>${it.price}</td>
@@ -239,7 +251,7 @@
     document.getElementById('pMeta').innerHTML=`<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`;
   }
   function show(it){
-    previewImg.src = it.imgUrl||'';
+    previewImg.src = toThumb(it.imgUrl||'');
     document.getElementById('pMeta').innerHTML =
       `<div>Typ: <b>${it.type}</b></div><div>LVL: <b>${it.lvl}</b></div><div>Cena: <b>${it.price}</b></div><div>Kontakt: <b>${it.contact}</b></div>`;
   }
@@ -305,6 +317,7 @@
 
   /* start */
   async function start(){ if(OWNER) await loadAndRender(); else render(); }
+  function setPreviewEmpty(){ previewImg.src=''; document.getElementById('pMeta').innerHTML=`<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>`; }
   start();
 </script>
 </body>
