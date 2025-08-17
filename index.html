@@ -69,11 +69,11 @@
   <section class="toolbar">
     <div class="tabsRow">
       <div class="tabs">
-        <button class="tab" data-type="Legendarny" aria-selected="true">Legendarny</button>
+        <button class="tab" data-type="Legendarny">Legendarny</button>
         <button class="tab" data-type="Heroiczny">Heroiczny</button>
         <button class="tab" data-type="Unikatowy">Unikatowy</button>
         <button class="tab" data-type="Inny">Inny</button>
-        <button class="tab" data-type="Wszystkie">Wszystkie</button>
+        <button class="tab" data-type="Wszystkie" aria-selected="true">Wszystkie</button>
       </div>
       <div class="tabs" id="viewTabs">
         <button class="tab" data-view="all"   aria-selected="true">Wszystkie oferty</button>
@@ -220,8 +220,8 @@
 
   // Obrazki (Drive)
   function toThumb(url){ if(!url) return ''; if(url.includes('drive.google.com/thumbnail?id=')) return url; let m=url.match(/\/file\/d\/([^/]+)/); if(m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600`; m=url.match(/[?&]id=([^&]+)/); if(m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1600`; if(/^[a-zA-Z0-9_-]{20,}$/.test(url)) return `https://drive.google.com/thumbnail?id=${url}&sz=w1600`; return url; }
-  function setImg(el, rawUrl){ const primary = toThumb(rawUrl||''); el.referrerPolicy='no-referrer'; el.onerror=()=>{ if(/^https?:\/\//i.test(rawUrl)){ el.onerror=null; el.src=rawUrl; return; } if(/^[a-zA-Z0-9_-]{20,}$/.test(rawUrl||'')){ el.onerror=null; el.src=`https://drive.google.com/uc?export=view&id=${rawUrl}`; } }; el.src=primary||''; }
-    function clearImg(el){ if(!el) return; el.onerror=null; el.src=''; el.hidden=true; } if(/^[a-zA-Z0-9_-]{20,}$/.test(rawUrl||'')){ el.onerror=null; el.src=`https://drive.google.com/uc?export=view&id=${rawUrl}`; } } }
+  function setImg(el, rawUrl){ const primary = toThumb(rawUrl||''); el.referrerPolicy='no-referrer'; el.onerror=()=>{ if(/^https?:\/\//i.test(rawUrl)){ el.onerror=null; el.src=rawUrl; return; } if(/^[a-zA-Z0-9_-]{20,}$/.test(rawUrl||'')){ el.onerror=null; el.src=`https://drive.google.com/uc?export=view&id=${rawUrl}`; } }; el.src = primary || ''; }
+  function clearImg(el){ if(!el) return; el.onerror=null; el.src=''; el.hidden=true; }
 
   // Po załadowaniu DOM
   document.addEventListener('DOMContentLoaded', () => {
