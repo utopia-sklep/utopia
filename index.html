@@ -184,7 +184,7 @@
 
 <script>
   /* === ADRES API === */
-  const API_URL = 'https://script.google.com/macros/s/AKfycbz3W6jwL5Ab1PBw_jjvhsAlXz0OtyCYHLQvSdO97RqXm7ZKuYW8wXeKAeJUYaKW-kjARQ/exec';
+  const API_URL = 'https://script.google.com/macros/s/AKfycbzWPygueePL-z1re__YROKMhY_mgiIbKp64mVdDgvovjBb5jxTe3RjgISQUEVbHZnvGVQ/exec';
 
   /* === profil (nick + PIN -> ownerId) === */
   const OWNER_KEY='utopia_owner_v1';
@@ -224,28 +224,27 @@
   async function apiAdd(offer, blob){
     const imgData = blob ? await blobToDataURL(blob) : '';
     const body = JSON.stringify({ action:'add', ...offer, imgData });
-    const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'application/json' }, body });
-    const text = await r.text(); try { return JSON.parse(text); } catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}`}; }
+    const r = await fetch(API_URL, { method:'POST', mode:'cors', headers:{ 'Content-Type':'application/json' }, body });
+    const text = await r.text();
+    try { return JSON.parse(text); }
+    catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,200)}`}; }
   }
   async function apiDelete(id){
     const body = JSON.stringify({ action:'delete', id,
-      ownerIdTry: OWNER?.ownerId || '',
-      adminToken: ADMIN_TOKEN || '',        // zgodność (b64)
-      adminTokenHex: ADMIN_TOKEN_HEX || ''  // nowy (hex)
-    });
-    const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'application/json' }, body });
-    const text = await r.text(); try { return JSON.parse(text); } catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}`}; }
+      ownerIdTry: OWNER?.ownerId || '', adminToken: ADMIN_TOKEN || '', adminTokenHex: ADMIN_TOKEN_HEX || '' });
+    const r = await fetch(API_URL, { method:'POST', mode:'cors', headers:{ 'Content-Type':'application/json' }, body });
+    const text = await r.text();
+    try { return JSON.parse(text); }
+    catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,200)}`}; }
   }
   async function apiUpdate(id, fields, blob){
     const imgData = blob ? await blobToDataURL(blob) : '';
     const body = JSON.stringify({ action:'update', id, ...fields,
-      imgData,
-      ownerIdTry: OWNER?.ownerId || '',
-      adminToken: ADMIN_TOKEN || '',        // zgodność (b64)
-      adminTokenHex: ADMIN_TOKEN_HEX || ''  // nowy (hex)
-    });
-    const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'application/json' }, body });
-    const text = await r.text(); try { return JSON.parse(text); } catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,120)}`}; }
+      imgData, ownerIdTry: OWNER?.ownerId || '', adminToken: ADMIN_TOKEN || '', adminTokenHex: ADMIN_TOKEN_HEX || '' });
+    const r = await fetch(API_URL, { method:'POST', mode:'cors', headers:{ 'Content-Type':'application/json' }, body });
+    const text = await r.text();
+    try { return JSON.parse(text); }
+    catch { return {ok:false, error:`HTTP ${r.status} ${text.slice(0,200)}`}; }
   }
   function blobToDataURL(blob){ return new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(blob); }); }
 
@@ -415,14 +414,32 @@
 
     if(!EDIT_MODE){
       const offer = { type, lvl, price, qty, contact, ownerId: OWNER?.ownerId||'' };
-      const res = await apiAdd(offer, imageBlob).catch(()=>({ok:false}));
+      let res;
+      try {
+        res = await apiAdd(offer, imageBlob);
+      } catch (e) {
+        res = { ok:false, error: (e && e.message) ? e.message : String(e) };
+      }
       saveBtn.disabled=false;
-      if(!res.ok){ hint.textContent = 'Błąd zapisu: ' + (res.error || 'spróbuj ponownie.'); return }
+      if(!res || !res.ok){
+        console.error('Save error response:', res);
+        hint.textContent = 'Błąd zapisu: ' + (res && res.error ? res.error : 'spróbuj ponownie.');
+        return;
+      }
     } else {
       const fields = { type, lvl, price, qty, contact };
-      const res = await apiUpdate(CURRENT.id, fields, imageBlob).catch(()=>({ok:false}));
+      let res;
+      try {
+        res = await apiUpdate(CURRENT.id, fields, imageBlob);
+      } catch (e) {
+        res = { ok:false, error: (e && e.message) ? e.message : String(e) };
+      }
       saveBtn.disabled=false;
-      if(!res.ok){ hint.textContent = 'Błąd edycji: ' + (res.error || 'spróbuj ponownie.'); return }
+      if(!res || !res.ok){
+        console.error('Update error response:', res);
+        hint.textContent = 'Błąd edycji: ' + (res && res.error ? res.error : 'spróbuj ponownie.');
+        return;
+      }
     }
     closeModal(); await loadAndRender();
   });
