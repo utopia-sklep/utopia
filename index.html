@@ -232,6 +232,7 @@
     const tbody = document.getElementById('tbody');
     const empty = document.getElementById('empty');
     const previewImg = document.getElementById('pImg');
+    const pMeta = document.getElementById('pMeta');
 
     // Modale i pola
     const overlay=document.getElementById('overlay');
@@ -276,21 +277,21 @@
     function setPreviewEmpty(){
       if (previewImg){
         previewImg.src = '';
-        previewImg.hidden = true; // schowaj podgląd, gdy lista jest pusta
+        previewImg.hidden = true;
       }
-      const meta = document.getElementById('pMeta');
-      if (meta){
-        meta.innerHTML = '<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>';
+      if (pMeta){
+        pMeta.innerHTML = '<div>Typ: <b>—</b></div><div>LVL: <b>—</b></div><div>Cena: <b>—</b></div><div>Kontakt: <b>—</b></div>';
       }
-    } }
+    }
     function show(it){
       if (previewImg){
-        previewImg.hidden = false; // pokaż podgląd, gdy mamy element
+        previewImg.hidden = false;
         setImg(previewImg, it.imgUrl||it.fileId||'');
       }
-      document.getElementById('pMeta').innerHTML = `
-        <div>Typ: <b>${it.type||'—'}</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`;
-    } document.getElementById('pMeta').innerHTML=`<div>Typ: <b>${it.type||'—'}</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`; }
+      if (pMeta){
+        pMeta.innerHTML = `<div>Typ: <b>${it.type||'—'}</b></div><div>LVL: <b>${it.lvl||'—'}</b></div><div>Cena: <b>${it.price||'—'}</b></div><div>Kontakt: <b>${it.contact||'—'}</b></div>`;
+      }
+    }
     function typeMatches(t){ if(state.type==='Wszystkie') return true; if(state.type==='Inny') return t==='Inny'||t==='Inne'; return t===state.type; }
     function byFilters(x){ if(!typeMatches(x.type)) return false; if(state.min!=='' && x.lvl<state.min) return false; if(state.max!=='' && x.lvl>state.max) return false; if(state.view==='mine'){ if(!OWNER||!OWNER.ownerId) return false; return x.ownerId===OWNER.ownerId; } return true; }
     function render(){ try{
